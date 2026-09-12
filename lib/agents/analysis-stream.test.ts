@@ -77,6 +77,7 @@ describe("createAnalysisStream（SSE 集成）", () => {
       "ui-code",
       "interviewer",
       "devils-advocate",
+      "rebuttal",
       "synthesis",
       "prd",
     ]);
@@ -126,5 +127,23 @@ describe("createAnalysisStream（SSE 集成）", () => {
 
     expect(events.some((e) => e.type === "error")).toBe(true);
     expect(events[events.length - 1]).toEqual({ type: "done" });
+  });
+
+  it("真辩论串行链：质疑 → 答辩 → 裁决，各段 start 晚于上游 done（W10）", async () => {
+    const stream = createAnalysisStream(parseProductBrief({ name: "X" }), {
+      provider: stubProvider(["x"]),
+    });
+    const { events } = await readEvents(stream);
+
+    const startOf = (id: string) =>
+      events.findIndex((e) => e.type === "agent:start" && e.agentId === id);
+    const doneOf = (id: string) =>
+      events.findIndex((e) => e.type === "agent:done" && e.agentId === id);
+
+    expect(startOf("devils-advocate")).toBeGreaterThanOrEqual(0);
+    // 答辩晚于质疑完成
+    expect(doneOf("devils-advocate")).toBeLessThan(startOf("rebuttal"));
+    // 裁决（综合官）晚于答辩完成
+    expect(doneOf("rebuttal")).toBeLessThan(startOf("synthesis"));
   });
 });

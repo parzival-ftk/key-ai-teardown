@@ -18,7 +18,7 @@ import { CodePreview } from "./code-preview";
 import { extractCodeBlocks, stripCodeBlocks } from "@/lib/report/code-blocks";
 
 /**
- * 7 段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
+ * 分段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
  * 章节顺序来自共享定义 lib/report/sections.ts，避免与导出模块漂移。
  */
 

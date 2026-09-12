@@ -4,7 +4,7 @@ import { REPORT_SECTIONS } from "@/lib/report/sections";
 import { EvidenceLabelSchema } from "@/lib/types/evidence";
 
 describe("内置样例报告（W2：可信度层贯通）", () => {
-  it("覆盖全部 7 段章节，顺序与 REPORT_SECTIONS 一致", () => {
+  it("覆盖全部报告章节，顺序与 REPORT_SECTIONS 一致", () => {
     expect(SAMPLE_REPORT.sections.map((s) => s.agentId)).toEqual(
       REPORT_SECTIONS.map((s) => s.agentId),
     );

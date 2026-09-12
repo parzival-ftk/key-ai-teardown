@@ -54,5 +54,13 @@ export interface Agent {
   name: string;
   /** 一句话职责描述 */
   description: string;
+  /**
+   * 显式依赖（W10）—— 本 Agent 只读取这些 Agent 的结果作为 priorResults。
+   *
+   * 省略时保持旧语义：并行组（见 OrchestratorOptions.parallel）视为无依赖，
+   * 其余按「依赖其之前声明的全部 Agent」串行执行。声明了 dependsOn 的 Agent
+   * 只看到所列依赖的结果（更窄的上下文），用于表达「访谈官只依赖研究员」这类关系。
+   */
+  dependsOn?: string[];
   run(brief: ProductBrief, ctx: AgentContext): Promise<AgentResult>;
 }

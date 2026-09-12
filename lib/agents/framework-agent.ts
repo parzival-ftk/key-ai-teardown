@@ -28,6 +28,8 @@ export interface FrameworkAgentConfig {
   description: string;
   /** 该 Agent 使用的分析框架（按顺序拼接） */
   frameworks: FrameworkTemplate[];
+  /** 显式依赖（W10）：传给编排层，收窄该 Agent 看到的 priorResults */
+  dependsOn?: string[];
 }
 
 /** 流式阶段为「元数据起点」保留的安全尾长（覆盖最长的可能前缀，避免吐半截） */
@@ -38,6 +40,7 @@ export function createFrameworkAgent({
   name,
   description,
   frameworks,
+  dependsOn,
 }: FrameworkAgentConfig): Agent {
   if (frameworks.length === 0) {
     throw new Error(`Agent ${id} 至少需要一个框架`);
@@ -51,6 +54,7 @@ export function createFrameworkAgent({
     id,
     name,
     description,
+    dependsOn,
     async run(brief, ctx) {
       const userText = frameworks
         .map((f) => f.userPrompt(brief, ctx.priorResults))

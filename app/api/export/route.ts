@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/export —— 报告导出（Wave 5.5）。
- * format=markdown（默认）→ 整份 7 段式报告 Markdown；
+ * format=markdown（默认）→ 整份报告 Markdown；
  * format=issues → PRD 用户故事转 GitHub Issues（Markdown）；
  * format=issues-json → 同上，JSON。
  *

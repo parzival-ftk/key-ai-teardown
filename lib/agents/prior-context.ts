@@ -11,7 +11,9 @@ const AGENT_LABELS: Record<string, string> = {
   business: "商业模式分析师",
   interviewer: "用户访谈官",
   "visual-design": "视觉设计分析师",
+  "ui-code": "界面代码生成师",
   "devils-advocate": "反方质疑官",
+  rebuttal: "答辩官",
   synthesis: "PM 综合官",
   prd: "PRD 撰写官",
 };

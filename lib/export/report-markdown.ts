@@ -3,7 +3,7 @@ import { EVIDENCE_LABEL } from "@/lib/report/evidence-labels";
 import type { Evidence } from "@/lib/types/evidence";
 
 /**
- * 报告 → Markdown（Wave 5.5；W2 补证据标签）—— 把 7 段式报告拼成可下载的文档。
+ * 报告 → Markdown（Wave 5.5；W2 补证据标签）—— 把报告各段拼成可下载的文档。
  * 缺段的章节显式标注负责 Agent，不静默留空；
  * 带证据的章节在正文后附「证据标签」列表（[已核实]/[推测]/[缺失]）。
  */

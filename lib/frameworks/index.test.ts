@@ -13,8 +13,8 @@ const brief = parseProductBrief({
 });
 
 describe("框架提示词库", () => {
-  it("导出十二个框架，id 齐全", () => {
-    expect(FRAMEWORK_LIST).toHaveLength(12);
+  it("导出十三个框架，id 齐全", () => {
+    expect(FRAMEWORK_LIST).toHaveLength(13);
     expect(Object.keys(FRAMEWORKS).sort()).toEqual([
       "aarrr",
       "business-canvas",
@@ -24,6 +24,7 @@ describe("框架提示词库", () => {
       "interviewer",
       "jtbd",
       "prd",
+      "rebuttal",
       "swot",
       "synthesis",
       "ui-code",
@@ -98,5 +99,14 @@ describe("框架提示词库", () => {
     expect(fw.systemPrompt).toContain("Tailwind");
     expect(fw.systemPrompt).toContain("参考起点");
     expect(fw.systemPrompt).toContain("自行设计");
+  });
+
+  it("答辩官框架要求逐条答辩 + 收敛纪律（W10）", () => {
+    const fw = FRAMEWORKS["rebuttal"];
+    expect(fw).toBeDefined();
+    expect(fw.systemPrompt).toContain("逐条答辩");
+    expect(fw.systemPrompt).toContain("接受");
+    expect(fw.systemPrompt).toContain("存疑");
+    expect(fw.systemPrompt).toContain("单轮");
   });
 });

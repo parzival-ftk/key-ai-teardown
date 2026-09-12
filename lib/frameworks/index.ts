@@ -6,6 +6,7 @@ import { aarrr } from "./aarrr";
 import { interviewer } from "./interviewer";
 import { competitorProfiles } from "./competitor-profiles";
 import { devilsAdvocate } from "./devils-advocate";
+import { rebuttal } from "./rebuttal";
 import { synthesis } from "./synthesis";
 import { prd } from "./prd";
 import { visualDesign } from "./visual-design";
@@ -21,6 +22,7 @@ export {
   interviewer,
   competitorProfiles,
   devilsAdvocate,
+  rebuttal,
   synthesis,
   prd,
   visualDesign,
@@ -39,6 +41,7 @@ export const FRAMEWORKS: Record<string, FrameworkTemplate> = {
   [interviewer.id]: interviewer,
   [competitorProfiles.id]: competitorProfiles,
   [devilsAdvocate.id]: devilsAdvocate,
+  [rebuttal.id]: rebuttal,
   [synthesis.id]: synthesis,
   [prd.id]: prd,
   [visualDesign.id]: visualDesign,

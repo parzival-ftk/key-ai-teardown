@@ -23,6 +23,7 @@ export const REPORT_SECTIONS: ReportSectionSpec[] = [
   { key: "visual", title: "视觉设计拆解", agentId: "visual-design", owner: "视觉设计分析师" },
   { key: "business", title: "商业模式", agentId: "business", owner: "商业模式分析师" },
   { key: "critique", title: "反方质疑", agentId: "devils-advocate", owner: "反方质疑官" },
+  { key: "rebuttal", title: "质疑答辩（逐条回应）", agentId: "rebuttal", owner: "答辩官" },
   { key: "synthesis", title: "综合结论与建议", agentId: "synthesis", owner: "PM 综合官" },
   {
     key: "prd",

@@ -12,6 +12,7 @@ import {
 import { createUiCodeAgent, UI_CODE_AGENT_ID } from "./ui-code";
 import { createInterviewerAgent } from "./interviewer";
 import { createDevilsAdvocateAgent } from "./devils-advocate";
+import { createRebuttalAgent } from "./rebuttal";
 import { createSynthesisAgent } from "./synthesis";
 import { createPrdAgent } from "./prd";
 import type { Agent } from "@/lib/types/agent";
@@ -28,7 +29,7 @@ export interface AnalysisStreamOptions {
   provider: LLMProvider;
   /** 默认完整编队；可注入以测试 */
   agents?: Agent[];
-  /** 默认并行组：三个分析 Agent（用户访谈官已在 W4 移入串行组以复用研究员画像） */
+  /** 默认并行组：五个分析 Agent；访谈官与后续辩论/综合 Agent 走串行 */
   parallel?: string[];
   signal?: AbortSignal;
 }
@@ -36,16 +37,14 @@ export interface AnalysisStreamOptions {
 /**
  * 默认编队（数组顺序即调度顺序）：
  *   market / user-research / business / visual-design / ui-code 五个分析 Agent 并行
- *   → 用户访谈官 → 反方质疑官 → PM 综合官 → PRD 撰写官
+ *   → 用户访谈官 → 反方质疑官 → 答辩官 → PM 综合官 → PRD 撰写官
  *
- * W4「画像先行」：用户访谈官移入串行组 —— 它要读到用户研究员已确立的 persona，
- * 必须等并行组全部完成后才跑（串行组天然能看到「此前所有已完成结果」）。
+ * W4「画像先行」：用户访谈官不在并行组 —— 它要读到用户研究员已确立的 persona。
+ *   W10 起该依赖由编排层**显式声明**（见 lib/agents/interviewer.ts 的 dependsOn），
+ *   不再靠框架内按 agentId 筛——W4 有意留下的「依赖图债」已在此偿还。
  *
- * ⚠️ 依赖图的债在此（W4 有意留债，计划在 W10 偿还）：
- *   访谈官 → 研究员 这层依赖目前是**隐式**的：靠 interviewer 框架从 priorResults 里
- *   按 agentId 筛，而非编排层声明的 dependsOn。orchestrator 只有「并行组 / 串行组」
- *   两档，任何串行 Agent 都能看到全部前序结果，无法表达「只依赖某一个」。
- *   W10 会把 orchestrator 升级为显式依赖图，届时这里应改为声明式依赖。
+ * W10「真辩论」：质疑官（devils-advocate）→ 答辩官（rebuttal）→ 综合官（synthesis）
+ *   构成串行链；综合官读质疑与答辩做裁决，分歧在报告「质疑答辩」段显式呈现。
  */
 export function createDefaultAgents(): Agent[] {
   return [
@@ -56,12 +55,13 @@ export function createDefaultAgents(): Agent[] {
     createVisualDesignAgent(),
     createUiCodeAgent(),
     createDevilsAdvocateAgent(),
+    createRebuttalAgent(),
     createSynthesisAgent(),
     createPrdAgent(),
   ];
 }
 
-/** 默认并行组：五个分析 Agent 同时跑（spec §5「并行分析」）；访谈官在 W4 移入串行组 */
+/** 默认并行组：五个分析 Agent 同时跑（spec §5「并行分析」）；其余 Agent 串行 */
 export const DEFAULT_PARALLEL_AGENT_IDS: string[] = [
   MARKET_AGENT_ID,
   USER_RESEARCH_AGENT_ID,
