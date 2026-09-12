@@ -111,3 +111,30 @@ export function findMetadataStart(text: string): number {
   const bare = /[{[,]\s*"(confidence|evidence)"\s*:/.exec(text);
   return bare && bare.index !== undefined ? bare.index : -1;
 }
+
+/**
+ * 可信度不变量 + 输入追溯（W1）。
+ *
+ * `verified` 表示「有明确来源支撑」，因此它必须能被本次输入机械核验：
+ * source 非空，且是 inputText 的子串。不满足则降级为 `inferred`
+ * ——无法机械核验，就不给 verified（治理幻觉的底线）。
+ *
+ * 硬约束：做**归一化降级**，不做 zod `.refine()` 硬卡——硬卡会让
+ * `tryParseMetadata` 返回 null、整块元数据被丢弃（修一个洞炸一整条链）。
+ *
+ * 纯函数：不修改入参数组与元素，返回新数组。
+ */
+export function normalizeEvidence(
+  evidence: Evidence[],
+  inputText: string,
+): Evidence[] {
+  return evidence.map((e) => {
+    if (e.label !== "verified") return e;
+    const source = e.source?.trim();
+    if (!source || !inputText.includes(source)) {
+      const downgraded: Evidence = { ...e, label: "inferred" };
+      return downgraded;
+    }
+    return e;
+  });
+}

@@ -1,7 +1,21 @@
 import type { Agent } from "@/lib/types/agent";
 import type { ChatMessage } from "@/lib/llm/provider";
 import type { FrameworkTemplate } from "@/lib/frameworks";
-import { parseStructuredOutput, findMetadataStart } from "./structured-output";
+import type { ProductBrief } from "@/lib/types/brief";
+import {
+  parseStructuredOutput,
+  findMetadataStart,
+  normalizeEvidence,
+} from "./structured-output";
+
+/**
+ * 归一化用的「本次输入文本」（W1）：机械核验 evidence.source 是否出自用户输入。
+ * 注意：截图源无文本子串可追溯 → 其所有 verified 会被降级为 inferred
+ * （有意设计：图片内容无法机械核验，就不给 verified）。
+ */
+function buildInputText(brief: ProductBrief): string {
+  return [brief.name, brief.description, brief.rawText].join("\n");
+}
 
 /**
  * 框架驱动的 Agent 工厂 —— 把「分析框架」与「执行逻辑」解耦（spec §6/§7）。
@@ -93,7 +107,8 @@ export function createFrameworkAgent({
         agentId: id,
         output: text,
         confidence,
-        evidence,
+        // W1：把「假引用」（verified 但来源无法追溯回本次输入）自动降级为 inferred
+        evidence: normalizeEvidence(evidence, buildInputText(brief)),
         failed: false,
       };
     },
