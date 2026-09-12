@@ -8,6 +8,7 @@ const AGENT_LABELS: Record<string, string> = {
   interviewer: "用户访谈官",
   "devils-advocate": "反方质疑官",
   synthesis: "PM 综合官",
+  prd: "PRD 撰写官",
 };
 
 /**

@@ -76,6 +76,7 @@ describe("createAnalysisStream（SSE 集成）", () => {
       "interviewer",
       "devils-advocate",
       "synthesis",
+      "prd",
     ]);
     // 辩论/综合在分析组之后（串行）：devils-advocate 的 start 晚于 market 的 done
     const marketDone = events.findIndex(

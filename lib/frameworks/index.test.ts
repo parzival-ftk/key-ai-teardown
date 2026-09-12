@@ -4,6 +4,7 @@ import { jtbd } from "./jtbd";
 import { businessCanvas } from "./business-canvas";
 import { interviewer } from "./interviewer";
 import { competitorProfiles } from "./competitor-profiles";
+import { prd } from "./prd";
 import { parseProductBrief } from "@/lib/types/brief";
 
 const brief = parseProductBrief({
@@ -12,8 +13,8 @@ const brief = parseProductBrief({
 });
 
 describe("框架提示词库", () => {
-  it("导出九个框架，id 齐全", () => {
-    expect(FRAMEWORK_LIST).toHaveLength(9);
+  it("导出十个框架，id 齐全", () => {
+    expect(FRAMEWORK_LIST).toHaveLength(10);
     expect(Object.keys(FRAMEWORKS).sort()).toEqual([
       "aarrr",
       "business-canvas",
@@ -22,6 +23,7 @@ describe("框架提示词库", () => {
       "five-forces",
       "interviewer",
       "jtbd",
+      "prd",
       "swot",
       "synthesis",
     ]);
@@ -70,5 +72,11 @@ describe("框架提示词库", () => {
   it("竞品画像框架要求威胁等级（E1）", () => {
     expect(competitorProfiles.systemPrompt).toContain("威胁等级");
     expect(competitorProfiles.systemPrompt).toContain("高");
+  });
+
+  it("PRD 撰写官框架要求用户故事、验收标准与发布就绪清单（E5）", () => {
+    expect(prd.systemPrompt).toContain("用户故事");
+    expect(prd.systemPrompt).toContain("验收标准");
+    expect(prd.systemPrompt).toContain("发布就绪清单");
   });
 });

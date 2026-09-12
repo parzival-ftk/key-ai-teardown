@@ -8,6 +8,7 @@ import { createBusinessAgent, BUSINESS_AGENT_ID } from "./business";
 import { createInterviewerAgent, INTERVIEWER_AGENT_ID } from "./interviewer";
 import { createDevilsAdvocateAgent } from "./devils-advocate";
 import { createSynthesisAgent } from "./synthesis";
+import { createPrdAgent } from "./prd";
 import type { Agent } from "@/lib/types/agent";
 import type { ProductBrief } from "@/lib/types/brief";
 import type { LLMProvider } from "@/lib/llm/provider";
@@ -29,8 +30,8 @@ export interface AnalysisStreamOptions {
 
 /**
  * 默认编队（顺序即展示顺序）：
- *   四个分析 Agent 并行 → 反方质疑官 → PM 综合官
- * 后两者串行，因此能读到前面所有结果（辩论需要）。
+ *   四个分析 Agent 并行 → 反方质疑官 → PM 综合官 → PRD 撰写官
+ * 后三者串行，因此能读到前面所有结果（辩论 / 综合 / PRD 需要）。
  */
 export function createDefaultAgents(): Agent[] {
   return [
@@ -40,6 +41,7 @@ export function createDefaultAgents(): Agent[] {
     createInterviewerAgent(),
     createDevilsAdvocateAgent(),
     createSynthesisAgent(),
+    createPrdAgent(),
   ];
 }
 
