@@ -1,3 +1,4 @@
+import { USER_RESEARCH_AGENT_ID } from "@/lib/types/agent-ids";
 import type { Evidence } from "@/lib/types/evidence";
 
 /**
@@ -58,7 +59,7 @@ Notion 处在「一体化工作空间」赛道，主要竞争者分三类：
 （推测）中文企业市场的合规与本地化能力是主要短板。`,
   },
   {
-    agentId: "user-research",
+    agentId: USER_RESEARCH_AGENT_ID,
     name: "用户研究员",
     status: "done",
     confidence: 68,

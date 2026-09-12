@@ -1,11 +1,16 @@
 import type { AgentResult } from "@/lib/types/agent";
+import { USER_RESEARCH_AGENT_ID } from "@/lib/types/agent-ids";
 
-/** Agent id → 展示名（供下游 Agent 的上下文文本使用） */
+/**
+ * Agent id → 展示名（供下游 Agent 的上下文文本使用）。
+ * 新增 Agent 时必须同步补这里，否则下游上下文里会显示英文 id。
+ */
 const AGENT_LABELS: Record<string, string> = {
   market: "竞品分析师",
-  "user-research": "用户研究员",
+  [USER_RESEARCH_AGENT_ID]: "用户研究员",
   business: "商业模式分析师",
   interviewer: "用户访谈官",
+  "visual-design": "视觉设计分析师",
   "devils-advocate": "反方质疑官",
   synthesis: "PM 综合官",
   prd: "PRD 撰写官",
