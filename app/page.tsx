@@ -1,4 +1,5 @@
-import { getLLMConfigStatus, PROVIDER_PRESETS } from "@/lib/config";
+import { getLLMConfigStatus } from "@/lib/config";
+import { BriefForm } from "@/components/brief-form";
 import { ConnectionTest } from "@/components/connection-test";
 
 // 每次请求读取真实环境变量（构建时无 key，不应被静态快照）
@@ -16,35 +17,22 @@ export default function Home() {
         </p>
       </header>
 
-      <section className="rounded-xl border border-gray-200 p-5 dark:border-gray-800">
-        <h2 className="mb-3 font-semibold">LLM 配置</h2>
-
-        {status.configured ? (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-gray-500">Base URL</dt>
-            <dd className="break-all">{status.baseURL}</dd>
-            <dt className="text-gray-500">模型</dt>
-            <dd>{status.model}</dd>
-          </dl>
-        ) : (
-          <div className="flex flex-col gap-2 text-sm">
-            <p className="text-amber-600">
-              尚未配置 LLM。请复制 <code>.env.example</code> 为{" "}
-              <code>.env</code>，填入你持有的一家厂商 key。
-            </p>
-            <p className="text-gray-500">
-              缺失项：{status.missing.join("、")}
-            </p>
-            <p className="text-gray-500">
-              支持厂商：{Object.keys(PROVIDER_PRESETS).join(" / ")}
-            </p>
+      {!status.configured && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-900 dark:bg-amber-950">
+          <p className="font-medium text-amber-700 dark:text-amber-300">
+            尚未配置 LLM
+          </p>
+          <p className="mt-1 text-amber-700 dark:text-amber-400">
+            请复制 <code>.env.example</code> 为 <code>.env</code>，填入你持有的一家厂商
+            key。缺失项：{status.missing.join("、")}
+          </p>
+          <div className="mt-3">
+            <ConnectionTest />
           </div>
-        )}
-
-        <div className="mt-4">
-          <ConnectionTest />
         </div>
-      </section>
+      )}
+
+      <BriefForm />
     </main>
   );
 }
