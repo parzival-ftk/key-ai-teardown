@@ -8,6 +8,7 @@ import { competitorProfiles } from "./competitor-profiles";
 import { devilsAdvocate } from "./devils-advocate";
 import { synthesis } from "./synthesis";
 import { prd } from "./prd";
+import { visualDesign } from "./visual-design";
 import type { FrameworkTemplate } from "./types";
 
 export {
@@ -21,6 +22,7 @@ export {
   devilsAdvocate,
   synthesis,
   prd,
+  visualDesign,
 };
 export { renderBrief, OUTPUT_RULES } from "./types";
 export type { FrameworkTemplate } from "./types";
@@ -37,6 +39,7 @@ export const FRAMEWORKS: Record<string, FrameworkTemplate> = {
   [devilsAdvocate.id]: devilsAdvocate,
   [synthesis.id]: synthesis,
   [prd.id]: prd,
+  [visualDesign.id]: visualDesign,
 };
 
 export const FRAMEWORK_LIST: FrameworkTemplate[] = Object.values(FRAMEWORKS);

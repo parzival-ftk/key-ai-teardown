@@ -13,8 +13,8 @@ const brief = parseProductBrief({
 });
 
 describe("框架提示词库", () => {
-  it("导出十个框架，id 齐全", () => {
-    expect(FRAMEWORK_LIST).toHaveLength(10);
+  it("导出十一个框架，id 齐全", () => {
+    expect(FRAMEWORK_LIST).toHaveLength(11);
     expect(Object.keys(FRAMEWORKS).sort()).toEqual([
       "aarrr",
       "business-canvas",
@@ -26,6 +26,7 @@ describe("框架提示词库", () => {
       "prd",
       "swot",
       "synthesis",
+      "visual-design",
     ]);
   });
 
@@ -78,5 +79,15 @@ describe("框架提示词库", () => {
     expect(prd.systemPrompt).toContain("用户故事");
     expect(prd.systemPrompt).toContain("验收标准");
     expect(prd.systemPrompt).toContain("发布就绪清单");
+  });
+
+  it("视觉设计框架要求色板/字体层级/间距/组件/布局，且声明「分析非复制」（W5）", () => {
+    const fw = FRAMEWORKS["visual-design"];
+    expect(fw).toBeDefined();
+    for (const kw of ["色板", "字体层级", "间距", "组件", "布局"]) {
+      expect(fw.systemPrompt).toContain(kw);
+    }
+    // 心智模型：产出的是「参考起点」，必须自己设计，不照搬
+    expect(fw.systemPrompt).toContain("自行设计");
   });
 });
