@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getLLMConfigStatus, PROVIDER_PRESETS } from "@/lib/config";
 import { BriefForm } from "@/components/brief-form";
 import { ConnectionTest } from "@/components/connection-test";
@@ -18,6 +19,12 @@ export default function Home() {
         <p className="text-lg text-gray-500">
           AI 产品拆解助手 —— 把任何产品拆成关键洞察
         </p>
+        <Link
+          href="/history"
+          className="text-sm text-gray-400 hover:underline"
+        >
+          历史记录 →
+        </Link>
       </header>
 
       {!status.configured && (

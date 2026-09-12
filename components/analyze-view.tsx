@@ -5,6 +5,7 @@ import Link from "next/link";
 import { deserializeAgentEvent, type AgentEvent } from "@/lib/types/events";
 import type { ProductBrief } from "@/lib/types/brief";
 import type { Evidence, EvidenceLabel } from "@/lib/types/evidence";
+import { saveReport } from "@/lib/history";
 
 type AgentStatus = "running" | "done" | "error";
 
@@ -77,13 +78,17 @@ export function AnalyzeView({ id }: { id: string }) {
 
     const current: AgentState[] = [];
     const persistReport = () => {
+      const report = { name: brief.name, sections: current };
       try {
-        sessionStorage.setItem(
-          `report:${id}`,
-          JSON.stringify({ name: brief.name, sections: current }),
-        );
+        sessionStorage.setItem(`report:${id}`, JSON.stringify(report));
       } catch {
         // 忽略存储失败（报告页会提示重新提交）
+      }
+      try {
+        // 同时写入持久化历史（localStorage），供历史页跨会话回看
+        saveReport(localStorage, { id, name: brief.name || "未命名" }, report);
+      } catch {
+        // 历史落盘失败不阻塞报告展示
       }
     };
 

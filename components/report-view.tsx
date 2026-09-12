@@ -2,20 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { REPORT_SECTIONS } from "@/lib/report/sections";
+import { getReport } from "@/lib/history";
 
 /**
- * 7 段式报告骨架（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
- * Wave 1 仅「竞品分析师」上线，其输出填入「市场格局」，其余段落标注待补充。
+ * 7 段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
+ * 章节顺序来自共享定义 lib/report/sections.ts，避免与导出模块漂移。
  */
-const SECTIONS = [
-  { key: "market", title: "市场与竞争格局", owner: "竞品分析师" },
-  { key: "users", title: "用户与场景", owner: "用户研究员" },
-  { key: "interview", title: "用户访谈实录", owner: "用户访谈官" },
-  { key: "business", title: "商业模式", owner: "商业模式分析师" },
-  { key: "critique", title: "反方质疑", owner: "反方质疑官" },
-  { key: "synthesis", title: "综合结论与建议", owner: "PM 综合官" },
-  { key: "prd", title: "PRD（用户故事 + 验收标准）", owner: "PRD 撰写官" },
-] as const;
 
 interface ReportSection {
   agentId: string;
@@ -29,26 +22,49 @@ interface ReportData {
   sections: ReportSection[];
 }
 
+/** 触发浏览器下载（前端拿到导出文本后落盘） */
+function download(filename: string, text: string, mime: string) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function safeFilename(name: string | undefined): string {
+  const base = (name ?? "report").trim() || "report";
+  return base.replace(/[^\w\u4e00-\u9fa5-]+/g, "_").slice(0, 40);
+}
+
 export function ReportView({ id }: { id: string }) {
   const [data, setData] = useState<ReportData | null>(null);
   const [missing, setMissing] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
-    let raw: string | null = null;
+    let parsed: ReportData | null = null;
+    // 优先读持久化历史（localStorage），回退到当前会话（sessionStorage）
     try {
-      raw = sessionStorage.getItem(`report:${id}`);
+      parsed = getReport<ReportData>(localStorage, id);
     } catch {
-      raw = null;
+      parsed = null;
     }
-    if (!raw) {
+    if (!parsed) {
+      try {
+        const raw = sessionStorage.getItem(`report:${id}`);
+        if (raw) parsed = JSON.parse(raw) as ReportData;
+      } catch {
+        parsed = null;
+      }
+    }
+    if (!parsed) {
       setMissing(true);
       return;
     }
-    try {
-      setData(JSON.parse(raw));
-    } catch {
-      setMissing(true);
-    }
+    setData(parsed);
   }, [id]);
 
   if (missing) {
@@ -74,18 +90,41 @@ export function ReportView({ id }: { id: string }) {
 
   const byAgent = (agentId: string) =>
     data.sections.find((s) => s.agentId === agentId)?.output;
-  const contentByKey: Record<string, string | undefined> = {
-    market: byAgent("market"),
-    users: byAgent("user-research"),
-    interview: byAgent("interviewer"),
-    business: byAgent("business"),
-    critique: byAgent("devils-advocate"),
-    synthesis: byAgent("synthesis"),
-  };
+  const generatedCount = data.sections.filter((s) => s.output).length;
+  const busy = exporting !== null;
+
+  async function handleExport(format: "markdown" | "issues") {
+    if (!data) return;
+    setExporting(format);
+    setExportError(null);
+    try {
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          sections: data.sections,
+          format,
+        }),
+      });
+      if (!res.ok) throw new Error(`导出失败：HTTP ${res.status}`);
+      const text = await res.text();
+      const base = safeFilename(data.name);
+      if (format === "issues") {
+        download(`${base}-prd-issues.md`, text, "text/markdown;charset=utf-8");
+      } else {
+        download(`${base}-报告.md`, text, "text/markdown;charset=utf-8");
+      }
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "导出失败，请重试");
+    } finally {
+      setExporting(null);
+    }
+  }
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8">
-      <header className="flex flex-col gap-1">
+      <header className="flex flex-col gap-2">
         <Link href="/" className="text-sm text-gray-400 hover:underline">
           ← 返回首页
         </Link>
@@ -93,13 +132,33 @@ export function ReportView({ id }: { id: string }) {
           {data.name || "产品"} · 拆解报告
         </h1>
         <p className="text-sm text-gray-400">
-          共 {SECTIONS.length} 段 · 当前已生成
-          {data.sections.filter((s) => s.output).length} 段
+          共 {REPORT_SECTIONS.length} 段 · 当前已生成 {generatedCount} 段
         </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => handleExport("markdown")}
+            disabled={busy}
+            className="rounded-lg bg-black px-4 py-1.5 text-sm font-medium text-white transition disabled:opacity-40 dark:bg-white dark:text-black"
+          >
+            {exporting === "markdown" ? "导出中…" : "下载报告（Markdown）"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExport("issues")}
+            disabled={busy}
+            className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-500 disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
+          >
+            {exporting === "issues" ? "导出中…" : "导出 PRD Issues"}
+          </button>
+        </div>
+        {exportError && (
+          <p className="text-sm text-red-600 dark:text-red-400">{exportError}</p>
+        )}
       </header>
 
-      {SECTIONS.map((section, i) => {
-        const content = contentByKey[section.key];
+      {REPORT_SECTIONS.map((section, i) => {
+        const content = byAgent(section.agentId);
         return (
           <section
             key={section.key}
@@ -115,7 +174,7 @@ export function ReportView({ id }: { id: string }) {
               </p>
             ) : (
               <p className="text-sm text-gray-400">
-                待补充 —— 由「{section.owner}」负责（后续 Wave 接入）。
+                待补充 —— 由「{section.owner}」负责。
               </p>
             )}
           </section>
