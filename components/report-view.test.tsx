@@ -45,4 +45,26 @@ describe("报告页证据渲染边界", () => {
     expect(html).not.toContain("undefined");
     expect(html).toContain("未知");
   });
+
+  it("界面代码段：代码围栏被提取成代码面板，正文不残留围栏（W6）", () => {
+    const html = render({
+      name: "X",
+      sections: [
+        {
+          agentId: "ui-code",
+          name: "界面代码生成师",
+          status: "done",
+          output:
+            '说明文字\n```html\n<div class="p-4">hi</div>\n```',
+        },
+      ],
+    });
+    expect(html).toContain("说明文字");
+    expect(html).toContain("hi");
+    expect(html).toContain("复制");
+    // 代码被转义渲染（作为文本，而非注入 HTML）
+    expect(html).toContain("&lt;div");
+    // 正文里不再残留围栏标记
+    expect(html).not.toContain("```");
+  });
 });

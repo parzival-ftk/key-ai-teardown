@@ -13,6 +13,8 @@ import {
   type EvidenceStats,
 } from "@/lib/types/evidence";
 import { EvidenceList } from "./evidence-list";
+import { CodePanel } from "./code-panel";
+import { extractCodeBlocks, stripCodeBlocks } from "@/lib/report/code-blocks";
 
 /**
  * 7 段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
@@ -200,7 +202,10 @@ export function ReportView({
 
       {REPORT_SECTIONS.map((section, i) => {
         const sectionData = byAgent(section.agentId);
-        const content = sectionData?.output;
+        const raw = sectionData?.output ?? "";
+        // W6：把代码围栏从正文里剥出来，单独用可复制的代码面板展示
+        const codeBlocks = raw ? extractCodeBlocks(raw) : [];
+        const content = codeBlocks.length > 0 ? stripCodeBlocks(raw) : raw;
         return (
           <section
             key={section.key}
@@ -220,11 +225,12 @@ export function ReportView({
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                 {content}
               </p>
-            ) : (
+            ) : codeBlocks.length === 0 ? (
               <p className="text-sm text-gray-400">
                 待补充 —— 由「{section.owner}」负责。
               </p>
-            )}
+            ) : null}
+            <CodePanel blocks={codeBlocks} />
             {/* 证据与正文独立渲染：正文为空但有证据时不应被连带丢弃（审查修复） */}
             <EvidenceList evidence={sectionData?.evidence ?? []} />
           </section>
