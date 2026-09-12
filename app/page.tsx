@@ -19,12 +19,14 @@ export default function Home() {
         <p className="text-lg text-gray-500">
           AI 产品拆解助手 —— 把任何产品拆成关键洞察
         </p>
-        <Link
-          href="/history"
-          className="text-sm text-gray-400 hover:underline"
-        >
-          历史记录 →
-        </Link>
+        <div className="flex gap-4">
+          <Link href="/sample" className="text-sm text-gray-400 hover:underline">
+            查看样例报告 →
+          </Link>
+          <Link href="/history" className="text-sm text-gray-400 hover:underline">
+            历史记录 →
+          </Link>
+        </div>
       </header>
 
       {!status.configured && (

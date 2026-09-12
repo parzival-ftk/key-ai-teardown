@@ -10,14 +10,14 @@ import { getReport } from "@/lib/history";
  * 章节顺序来自共享定义 lib/report/sections.ts，避免与导出模块漂移。
  */
 
-interface ReportSection {
+export interface ReportSection {
   agentId: string;
   name: string;
   status: string;
   output: string;
 }
 
-interface ReportData {
+export interface ReportData {
   name?: string;
   sections: ReportSection[];
 }
@@ -38,13 +38,21 @@ function safeFilename(name: string | undefined): string {
   return base.replace(/[^\w\u4e00-\u9fa5-]+/g, "_").slice(0, 40);
 }
 
-export function ReportView({ id }: { id: string }) {
-  const [data, setData] = useState<ReportData | null>(null);
+export function ReportView({
+  id,
+  initialData,
+}: {
+  id: string;
+  /** 直接注入报告数据（样例回放等）；提供时跳过存储加载 */
+  initialData?: ReportData;
+}) {
+  const [data, setData] = useState<ReportData | null>(initialData ?? null);
   const [missing, setMissing] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialData) return;
     let parsed: ReportData | null = null;
     // 优先读持久化历史（localStorage），回退到当前会话（sessionStorage）
     try {
@@ -65,7 +73,7 @@ export function ReportView({ id }: { id: string }) {
       return;
     }
     setData(parsed);
-  }, [id]);
+  }, [id, initialData]);
 
   if (missing) {
     return (
