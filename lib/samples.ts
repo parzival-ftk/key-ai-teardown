@@ -1,6 +1,9 @@
+import type { Evidence } from "@/lib/types/evidence";
+
 /**
- * 内置样例报告（Wave 6.3）—— 断网 / 无 API key 时也能完整演示。
- * 内容为演示用途（对已知产品 Notion 的示意性拆解），非实时模型产出。
+ * 内置样例报告（Wave 6.3；W2 补可信度层）—— 断网 / 无 API key 时也能完整演示。
+ * 内容为演示用途（对已知产品 Notion 的示意性拆解），非实时模型产出；
+ * 证据标签同为示意，用于展示「可追溯」这一能力。
  */
 
 export interface SampleReportSection {
@@ -8,6 +11,10 @@ export interface SampleReportSection {
   name: string;
   status: string;
   output: string;
+  /** 模型自评置信度（样例为示意值） */
+  confidence?: number;
+  /** 证据标签（样例为示意值） */
+  evidence: Evidence[];
 }
 
 export interface SampleReport {
@@ -22,6 +29,19 @@ const SECTIONS: SampleReportSection[] = [
     agentId: "market",
     name: "竞品分析师",
     status: "done",
+    confidence: 72,
+    evidence: [
+      {
+        claim: "Notion 提供文档、数据库与看板三类核心能力",
+        label: "verified",
+        source: "notion.so 官网",
+      },
+      { claim: "block 数据模型 + 模板生态构成核心壁垒", label: "inferred" },
+      {
+        claim: "中文企业市场的合规与本地化门槛未在公开资料中确认",
+        label: "missing",
+      },
+    ],
     output: `### 竞争格局
 Notion 处在「一体化工作空间」赛道，主要竞争者分三类：
 1. **文档协作为主**：Coda、飞书文档 —— 强在文档，弱在数据库灵活性。
@@ -41,6 +61,16 @@ Notion 处在「一体化工作空间」赛道，主要竞争者分三类：
     agentId: "user-research",
     name: "用户研究员",
     status: "done",
+    confidence: 68,
+    evidence: [
+      { claim: "三类用户画像按行为聚类推断得出", label: "inferred" },
+      {
+        claim: "「掌控感」是官方模板与营销中的核心诉求",
+        label: "verified",
+        source: "notion.so 官网",
+      },
+      { claim: "中文本地化模板与社区内容的实际供给量未知", label: "missing" },
+    ],
     output: `### 用户画像（按行为聚类）
 1. **「知识管家」型**：个人为主，把 Notion 当第二大脑，重检索与模板。
 2. **「流程搭建者」型**：小团队负责人，用数据库搭轻量项目系统。
@@ -59,6 +89,11 @@ Notion 处在「一体化工作空间」赛道，主要竞争者分三类：
     agentId: "interviewer",
     name: "用户访谈官",
     status: "done",
+    confidence: 55,
+    evidence: [
+      { claim: "无真实访谈数据，persona 与证言均为模拟", label: "missing" },
+      { claim: "「过度整理」摩擦点由社区讨论归纳", label: "inferred" },
+    ],
     output: `> 以下 persona 与证言为**模拟**，非真实访谈数据。
 
 ### Persona 1｜独立顾问
@@ -76,6 +111,12 @@ Notion 处在「一体化工作空间」赛道，主要竞争者分三类：
     agentId: "business",
     name: "商业模式分析师",
     status: "done",
+    confidence: 66,
+    evidence: [
+      { claim: "self-serve 模式使 CAC 偏低", label: "inferred" },
+      { claim: "LTV 取决于团队席位扩张速度", label: "inferred" },
+      { claim: "具体转化率与净留存 NRR 数值未公开", label: "missing" },
+    ],
     output: `### 商业模式画布（要点）
 - 收入结构：个人免费 + 团队按席位订阅（个人 Pro / 团队版）。
 - 增长引擎：**PLG**——用公开页面 / 模板做病毒传播，再转团队付费。
@@ -89,6 +130,11 @@ Notion 处在「一体化工作空间」赛道，主要竞争者分三类：
     agentId: "devils-advocate",
     name: "反方质疑官",
     status: "done",
+    confidence: 60,
+    evidence: [
+      { claim: "「block 壁垒高」可能被模板生态抹平", label: "inferred" },
+      { claim: "缺少与竞品的模板库规模对比数据", label: "missing" },
+    ],
     output: `### 被质疑的假设
 1.（来自竞品分析师）「block 模型壁垒高」——但模板可复制，壁垒可能被生态抹平。
 2.（来自用户研究员）「掌控感是核心情绪价值」——也可能是『工具焦虑』的来源。
@@ -105,6 +151,16 @@ Notion 处在「一体化工作空间」赛道，主要竞争者分三类：
     agentId: "synthesis",
     name: "PM 综合官",
     status: "done",
+    confidence: 75,
+    evidence: [
+      { claim: "核心壁垒是数据模型 + 模板生态", label: "inferred" },
+      {
+        claim: "PLG 增长路径已被公开页面传播实践验证",
+        label: "verified",
+        source: "notion.so 公开页面功能",
+      },
+      { claim: "中文市场是增长短板，本地化与合规为变量", label: "inferred" },
+    ],
     output: `### 执行摘要
 Notion 的机会在「一体化 + 结构化」，最大风险是「过度灵活劝退新用户」，且中文市场受本土生态挤压。
 
@@ -125,6 +181,15 @@ Notion 的机会在「一体化 + 结构化」，最大风险是「过度灵活�
     agentId: "prd",
     name: "PRD 撰写官",
     status: "done",
+    confidence: 70,
+    evidence: [
+      { claim: "北极星指标「5 分钟内容创建率」为建议值", label: "inferred" },
+      {
+        claim: "埋点与成功指标尚未接入，指标口径待定",
+        label: "missing",
+      },
+      { claim: "用户故事基于前述画像与摩擦点推导", label: "inferred" },
+    ],
     output: `### 一、背景与目标
 降低新用户从注册到产出第一个有用页面的门槛，把「5 分钟做出第一个页面」作为体验目标。
 

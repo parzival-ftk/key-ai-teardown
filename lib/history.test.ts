@@ -71,4 +71,29 @@ describe("本地历史记录（Wave 5.6）", () => {
     store.setItem(reportStorageKey("x"), "broken");
     expect(getReport(store, "x")).toBeNull();
   });
+
+  it("保存时记录证据计数，可随列表读回（W2）", () => {
+    const store = memoryStore();
+    saveReport(
+      store,
+      {
+        id: "a",
+        name: "Notion",
+        evidenceStats: { verified: 2, inferred: 1, missing: 0 },
+      },
+      { v: 1 },
+      1000,
+    );
+    expect(listHistory(store)[0].evidenceStats).toEqual({
+      verified: 2,
+      inferred: 1,
+      missing: 0,
+    });
+  });
+
+  it("未提供证据计数时字段缺省（向后兼容旧条目）", () => {
+    const store = memoryStore();
+    saveReport(store, { id: "a", name: "X" }, { v: 1 }, 1000);
+    expect(listHistory(store)[0].evidenceStats).toBeUndefined();
+  });
 });

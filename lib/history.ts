@@ -1,5 +1,8 @@
+import type { EvidenceStats } from "@/lib/types/evidence";
+
 /**
- * 本地历史记录（Wave 5.6）—— 用 localStorage 持久化历次拆解报告。
+ * 本地历史记录（Wave 5.6；W2 加证据计数）。
+ * 用 localStorage 持久化历次拆解报告。
  *
  * 通过 KVStore 抽象注入存储：浏览器传 localStorage，单测传内存实现，
  * 逻辑本身不依赖 window，便于纯函数测试。
@@ -15,6 +18,8 @@ export interface HistoryEntry {
   id: string;
   name: string;
   createdAt: number;
+  /** 证据标签计数（W2）—— 列表可概览该次分析的「可追溯」程度；旧条目可能缺省 */
+  evidenceStats?: EvidenceStats;
 }
 
 const INDEX_KEY = "key:history";
@@ -55,14 +60,19 @@ export function listHistory(store: KVStore): HistoryEntry[] {
 /** 保存一份报告并写入索引；超上限时裁剪最旧条目（含报告体）。返回更新后的索引。 */
 export function saveReport(
   store: KVStore,
-  meta: { id: string; name: string },
+  meta: { id: string; name: string; evidenceStats?: EvidenceStats },
   report: unknown,
   now: number = Date.now(),
 ): HistoryEntry[] {
   store.setItem(reportStorageKey(meta.id), JSON.stringify(report));
 
   const entries = readIndex(store).filter((e) => e.id !== meta.id);
-  entries.push({ id: meta.id, name: meta.name, createdAt: now });
+  entries.push({
+    id: meta.id,
+    name: meta.name,
+    createdAt: now,
+    evidenceStats: meta.evidenceStats,
+  });
   entries.sort((a, b) => b.createdAt - a.createdAt);
 
   for (const dropped of entries.slice(MAX_ENTRIES)) {
