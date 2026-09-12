@@ -334,3 +334,58 @@ export const SAMPLE_REPORT: SampleReport = {
   name: SAMPLE_REPORT_NAME,
   sections: SECTIONS,
 };
+
+/**
+ * 内置对比样例（W11）—— 无 API key / 断网时演示「多产品并列对比表」。
+ * 内容为示意（对三个公开产品的定位级对比），非实时模型产出；证据标签同为示意。
+ */
+export interface SampleComparison {
+  products: string[];
+  comparison: {
+    output: string;
+    confidence?: number;
+    evidence: Evidence[];
+  };
+}
+
+export const SAMPLE_COMPARISON: SampleComparison = {
+  products: ["Notion", "Figma", "Duolingo"],
+  comparison: {
+    confidence: 66,
+    evidence: [
+      { claim: "三者定位差异由各自公开定位归纳", label: "inferred" },
+      {
+        claim: "Notion 以公开页面 / 模板做 PLG 传播",
+        label: "verified",
+        source: "notion.so 公开页面功能",
+      },
+      { claim: "三者收入结构的具体数值均未公开", label: "missing" },
+    ],
+    output: `### 一句话定位
+- **Notion**：给团队与个人的一体化工作空间，把文档、数据库与看板合一。
+- **Figma**：浏览器端的协同设计工具，让设计资产变成可实时协作的在线对象。
+- **Duolingo**：游戏化语言学习应用，用打卡与排行榜驱动每日学习习惯。
+
+### 并列对比表
+
+| 对比维度 | Notion | Figma | Duolingo |
+| --- | --- | --- | --- |
+| 目标用户 / 核心场景 | 中小团队与个人知识管理 | 产品 / 设计团队协作 | 语言学习个人用户 |
+| 核心价值主张 | 一个工具替代文档 + 表格 + 看板 | 多人实时共编同一设计文件 | 把「坚持学」游戏化 |
+| 商业模式 | 个人免费 + 团队按席位订阅 | 按席位订阅（编辑者收费） | 免费 + 订阅 / 广告 |
+| 主要竞争优势 | block 数据模型 + 沉淀内容 | 实时协同 + 设计-开发交接 | 动机设计（streak / 排行榜） |
+| 主要风险 / 软肋 | 太灵活、新手上手门槛高 | 依赖浏览器性能 | 高阶用户易流失到系统课程 |
+
+### 关键差异
+1. **沉淀物不同**：Notion 沉淀「内容」，Figma 沉淀「设计资产」，Duolingo 沉淀「学习行为」。
+2. **壁垒来源不同**：前两者靠用户自建内容 / 文件的切换成本，Duolingo 靠行为习惯（streak）。
+3. **付费锚点不同**：Notion / Figma 是团队席位，Duolingo 是个人订阅。
+
+### 选择建议
+- 要做**团队知识管理** → Notion。
+- 要做**多人设计协作** → Figma。
+- 目标用户是**需要被激励的个人** → 参考 Duolingo 的动机设计。
+
+> 以上为示例对比（示意内容），非实时模型产出。`,
+  },
+};

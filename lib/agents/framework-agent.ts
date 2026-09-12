@@ -2,11 +2,7 @@ import type { Agent } from "@/lib/types/agent";
 import type { ChatMessage } from "@/lib/llm/provider";
 import type { FrameworkTemplate } from "@/lib/frameworks";
 import type { ProductBrief } from "@/lib/types/brief";
-import {
-  parseStructuredOutput,
-  findMetadataStart,
-  normalizeEvidence,
-} from "./structured-output";
+import { runCompletionStream } from "./completion-stream";
 
 /**
  * 归一化用的「本次输入文本」（W1）：机械核验 evidence.source 是否出自用户输入。
@@ -20,6 +16,8 @@ function buildInputText(brief: ProductBrief): string {
 /**
  * 框架驱动的 Agent 工厂 —— 把「分析框架」与「执行逻辑」解耦（spec §6/§7）。
  * 一个 Agent 可绑定多个框架（其提示词与用户消息依次拼接，单次 LLM 调用产出）。
+ *
+ * 流式 + 结构化解析逻辑抽到 completion-stream（W10/W11 与对比官共用）。
  */
 
 export interface FrameworkAgentConfig {
@@ -31,9 +29,6 @@ export interface FrameworkAgentConfig {
   /** 显式依赖（W10）：传给编排层，收窄该 Agent 看到的 priorResults */
   dependsOn?: string[];
 }
-
-/** 流式阶段为「元数据起点」保留的安全尾长（覆盖最长的可能前缀，避免吐半截） */
-const SAFE_TAIL = 16;
 
 export function createFrameworkAgent({
   id,
@@ -74,45 +69,20 @@ export function createFrameworkAgent({
         { role: "user", content: userContent },
       ];
 
-      let raw = "";
-      let emitted = 0;
-      let metadataStarted = false;
-
-      const flushVisible = (upTo: number) => {
-        if (upTo <= emitted) return;
-        const delta = raw.slice(emitted, upTo);
-        emitted = upTo;
-        if (delta) ctx.emit({ type: "agent:token", agentId: id, delta });
-      };
-
-      for await (const delta of ctx.provider.chatStream(messages, {
+      const { text, confidence, evidence } = await runCompletionStream({
+        provider: ctx.provider,
+        messages,
+        agentId: id,
+        emit: ctx.emit,
         signal: ctx.signal,
-      })) {
-        raw += delta;
-        if (metadataStarted) continue;
-
-        // 元数据区起点（围栏 1-3 个反引号，或裸 JSON 的 { "confidence"/"evidence"）
-        const start = findMetadataStart(raw);
-        if (start !== -1) {
-          metadataStarted = true;
-          flushVisible(start);
-        } else {
-          flushVisible(Math.max(0, raw.length - SAFE_TAIL));
-        }
-      }
-
-      // 流结束且从未进入元数据区 → flush 剩余可见文本
-      if (!metadataStarted) flushVisible(raw.length);
-
-      // 剥离结构化元数据（置信度 + 证据标签）；解析失败自动降级为纯文本
-      const { text, confidence, evidence } = parseStructuredOutput(raw);
+        inputText: buildInputText(brief),
+      });
 
       return {
         agentId: id,
         output: text,
         confidence,
-        // W1：把「假引用」（verified 但来源无法追溯回本次输入）自动降级为 inferred
-        evidence: normalizeEvidence(evidence, buildInputText(brief)),
+        evidence,
         failed: false,
       };
     },

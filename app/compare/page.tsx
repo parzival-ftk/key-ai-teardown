@@ -1,12 +1,12 @@
 import Link from "next/link";
+import { CompareForm } from "@/components/compare-form";
 import { getLLMConfigStatus, PROVIDER_PRESETS } from "@/lib/config";
-import { BriefForm } from "@/components/brief-form";
 import { ConnectionTest } from "@/components/connection-test";
 
 // 每次请求读取真实环境变量（构建时无 key，不应被静态快照）
 export const dynamic = "force-dynamic";
 
-export default function Home() {
+export default function ComparePage() {
   const status = getLLMConfigStatus();
   const supportedVendors = Object.entries(PROVIDER_PRESETS)
     .map(([key, preset]) => `${key}（${preset.model}）`)
@@ -15,21 +15,19 @@ export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 p-8">
       <header className="flex flex-col gap-2">
-        <h1 className="text-4xl font-bold tracking-tight">Key</h1>
+        <Link href="/" className="text-sm text-gray-400 hover:underline">
+          ← 返回首页
+        </Link>
+        <h1 className="text-3xl font-bold tracking-tight">多产品对比</h1>
         <p className="text-lg text-gray-500">
-          AI 产品拆解助手 —— 把任何产品拆成关键洞察
+          输入 2-3 个产品，各自独立拆解后产出并列对比表
         </p>
-        <div className="flex gap-4">
-          <Link href="/sample" className="text-sm text-gray-400 hover:underline">
-            查看样例报告 →
-          </Link>
-          <Link href="/compare" className="text-sm text-gray-400 hover:underline">
-            多产品对比 →
-          </Link>
-          <Link href="/history" className="text-sm text-gray-400 hover:underline">
-            历史记录 →
-          </Link>
-        </div>
+        <Link
+          href="/compare/sample"
+          className="text-sm text-gray-400 hover:underline"
+        >
+          查看样例对比 →
+        </Link>
       </header>
 
       {!status.configured && (
@@ -50,7 +48,7 @@ export default function Home() {
         </div>
       )}
 
-      <BriefForm />
+      <CompareForm />
     </main>
   );
 }
