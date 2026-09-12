@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { deserializeAgentEvent, type AgentEvent } from "@/lib/types/events";
 import type { ProductBrief } from "@/lib/types/brief";
-import type { Evidence, EvidenceLabel } from "@/lib/types/evidence";
+import { summarizeEvidence, type Evidence } from "@/lib/types/evidence";
 import { saveReport } from "@/lib/history";
+import { EvidenceList } from "./evidence-list";
 
 type AgentStatus = "running" | "done" | "error";
 
@@ -28,18 +29,6 @@ const STATUS_DOT: Record<AgentStatus, string> = {
   running: "bg-blue-500 animate-pulse",
   done: "bg-green-500",
   error: "bg-red-500",
-};
-
-const EVIDENCE_LABEL: Record<EvidenceLabel, string> = {
-  verified: "已核实",
-  inferred: "推测",
-  missing: "缺失",
-};
-
-const EVIDENCE_CLASS: Record<EvidenceLabel, string> = {
-  verified: "text-green-600 dark:text-green-400",
-  inferred: "text-amber-600 dark:text-amber-400",
-  missing: "text-gray-400",
 };
 
 export function AnalyzeView({ id }: { id: string }) {
@@ -78,6 +67,9 @@ export function AnalyzeView({ id }: { id: string }) {
 
     const current: AgentState[] = [];
     const persistReport = () => {
+      const evidenceStats = summarizeEvidence(
+        current.flatMap((a) => a.evidence),
+      );
       const report = { name: brief.name, sections: current };
       try {
         sessionStorage.setItem(`report:${id}`, JSON.stringify(report));
@@ -86,7 +78,11 @@ export function AnalyzeView({ id }: { id: string }) {
       }
       try {
         // 同时写入持久化历史（localStorage），供历史页跨会话回看
-        saveReport(localStorage, { id, name: brief.name || "未命名" }, report);
+        saveReport(
+          localStorage,
+          { id, name: brief.name || "未命名", evidenceStats },
+          report,
+        );
       } catch {
         // 历史落盘失败不阻塞报告展示
       }
@@ -218,23 +214,7 @@ export function AnalyzeView({ id }: { id: string }) {
               {agent.output || "…"}
             </p>
 
-            {agent.evidence.length > 0 && (
-              <ul className="mt-3 flex flex-col gap-1 border-t border-gray-100 pt-3 dark:border-gray-800">
-                {agent.evidence.map((item, i) => (
-                  <li key={i} className="flex gap-2 text-xs">
-                    <span
-                      className={`shrink-0 font-medium ${EVIDENCE_CLASS[item.label]}`}
-                    >
-                      [{EVIDENCE_LABEL[item.label]}]
-                    </span>
-                    <span className="text-gray-500">
-                      {item.claim}
-                      {item.source ? `（${item.source}）` : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <EvidenceList evidence={agent.evidence} />
           </section>
         ))}
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { listHistory, removeReport, type HistoryEntry } from "@/lib/history";
+import { EVIDENCE_LABEL, EVIDENCE_ORDER } from "@/lib/report/evidence-labels";
 
 /** 历史记录列表（Wave 5.6）—— 读取 localStorage 中的本地历史，可回看/删除。 */
 export function HistoryList() {
@@ -59,6 +60,18 @@ export function HistoryList() {
             <span className="text-xs text-gray-400">
               {new Date(entry.createdAt).toLocaleString()}
             </span>
+            {entry.evidenceStats && (
+              <span className="mt-0.5 text-xs text-gray-400">
+                {EVIDENCE_ORDER.filter(
+                  (label) => (entry.evidenceStats?.[label] ?? 0) > 0,
+                )
+                  .map(
+                    (label) =>
+                      `${EVIDENCE_LABEL[label]} ${entry.evidenceStats?.[label]}`,
+                  )
+                  .join(" · ")}
+              </span>
+            )}
           </div>
           <button
             type="button"

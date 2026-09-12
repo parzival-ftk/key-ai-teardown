@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { REPORT_SECTIONS } from "@/lib/report/sections";
 import { getReport } from "@/lib/history";
+import type { Evidence } from "@/lib/types/evidence";
+import { EvidenceList } from "./evidence-list";
 
 /**
  * 7 段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
@@ -15,6 +17,10 @@ export interface ReportSection {
   name: string;
   status: string;
   output: string;
+  /** 模型自评置信度（W2）—— 旧报告可能缺省 */
+  confidence?: number;
+  /** 证据标签（W2）—— 旧报告可能缺省 */
+  evidence?: Evidence[];
 }
 
 export interface ReportData {
@@ -97,7 +103,7 @@ export function ReportView({
   }
 
   const byAgent = (agentId: string) =>
-    data.sections.find((s) => s.agentId === agentId)?.output;
+    data.sections.find((s) => s.agentId === agentId);
   const generatedCount = data.sections.filter((s) => s.output).length;
   const busy = exporting !== null;
 
@@ -166,7 +172,8 @@ export function ReportView({
       </header>
 
       {REPORT_SECTIONS.map((section, i) => {
-        const content = byAgent(section.agentId);
+        const sectionData = byAgent(section.agentId);
+        const content = sectionData?.output;
         return (
           <section
             key={section.key}
@@ -176,11 +183,19 @@ export function ReportView({
             <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
               <span className="text-sm text-gray-400">{i + 1}.</span>
               {section.title}
+              {typeof sectionData?.confidence === "number" && (
+                <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                  置信度 {sectionData.confidence}
+                </span>
+              )}
             </h2>
             {content ? (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                {content}
-              </p>
+              <>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                  {content}
+                </p>
+                <EvidenceList evidence={sectionData?.evidence ?? []} />
+              </>
             ) : (
               <p className="text-sm text-gray-400">
                 待补充 —— 由「{section.owner}」负责。
