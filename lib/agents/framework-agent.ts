@@ -38,14 +38,22 @@ export function createFrameworkAgent({
     name,
     description,
     async run(brief, ctx) {
+      const userText = frameworks
+        .map((f) => f.userPrompt(brief, ctx.priorResults))
+        .join("\n\n");
+
+      // 截图输入（Wave 4.2）：把图片作为多模态分片附加到用户消息，
+      // 由 Vision 模型识别。纯文本输入时 content 保持为字符串。
+      const userContent: ChatMessage["content"] = brief.screenshotDataUrl
+        ? [
+            { type: "text", text: userText },
+            { type: "image_url", image_url: { url: brief.screenshotDataUrl } },
+          ]
+        : userText;
+
       const messages: ChatMessage[] = [
         { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: frameworks
-            .map((f) => f.userPrompt(brief, ctx.priorResults))
-            .join("\n\n"),
-        },
+        { role: "user", content: userContent },
       ];
 
       let raw = "";

@@ -7,9 +7,18 @@
 
 export type ChatRole = "system" | "user" | "assistant";
 
+/** 多模态内容分片（OpenAI 兼容协议）—— 文本或图片 */
+export type TextContentPart = { type: "text"; text: string };
+export type ImageContentPart = {
+  type: "image_url";
+  image_url: { url: string };
+};
+export type ContentPart = TextContentPart | ImageContentPart;
+
 export interface ChatMessage {
   role: ChatRole;
-  content: string;
+  /** 纯文本，或（截图输入时）文本 + 图片的多模态分片数组 */
+  content: string | ContentPart[];
 }
 
 export interface ChatOptions {

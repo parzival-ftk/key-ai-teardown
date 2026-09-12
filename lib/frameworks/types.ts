@@ -27,6 +27,9 @@ export function renderBrief(brief: ProductBrief): string {
     `产品名称：${brief.name}`,
     brief.description ? `产品描述：${brief.description}` : "",
     brief.rawText ? `补充资料：${brief.rawText}` : "",
+    brief.screenshotDataUrl
+      ? "（随附一张产品截图，请结合截图中的界面、功能与信息进行分析）"
+      : "",
   ]
     .filter(Boolean)
     .join("\n");
