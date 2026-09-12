@@ -4,12 +4,15 @@ import { EvidenceSchema } from "./evidence";
 /**
  * SSE 事件协议 —— 产品的心脏（设计规格 §5）。
  *
- * agent:start    → 前端对应 Agent 卡片亮起
- * agent:token    → 逐字流式输出
- * agent:done     → 卡片完成，可携带置信度
- * report:section → 报告某板块就绪
- * error          → 单 Agent 失败（不阻塞整体）
- * done           → 全流程结束
+ * agent:start → 前端对应 Agent 卡片亮起
+ * agent:token → 逐字流式输出
+ * agent:done  → 卡片完成，携带置信度与证据标签
+ * error       → 单 Agent 失败（不阻塞整体）
+ * done        → 全流程结束
+ *
+ * 注：spec §5 另定义过 report:section（报告板块就绪）事件，但当前架构下
+ * 报告由前端从各 Agent 结果组装（sessionStorage），该事件无 emit 方也无消费方，
+ * 为避免死协议已移除；若将来改做增量报告渲染可重新引入。
  */
 export const AgentStartEventSchema = z.object({
   type: z.literal("agent:start"),
@@ -33,12 +36,6 @@ export const AgentDoneEventSchema = z.object({
   evidence: z.array(EvidenceSchema).optional(),
 });
 
-export const ReportSectionEventSchema = z.object({
-  type: z.literal("report:section"),
-  section: z.string(),
-  content: z.string(),
-});
-
 export const ErrorEventSchema = z.object({
   type: z.literal("error"),
   agentId: z.string().optional(),
@@ -54,7 +51,6 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
   AgentStartEventSchema,
   AgentTokenEventSchema,
   AgentDoneEventSchema,
-  ReportSectionEventSchema,
   ErrorEventSchema,
   DoneEventSchema,
 ]);
@@ -63,7 +59,6 @@ export type AgentEvent = z.infer<typeof AgentEventSchema>;
 export type AgentStartEvent = z.infer<typeof AgentStartEventSchema>;
 export type AgentTokenEvent = z.infer<typeof AgentTokenEventSchema>;
 export type AgentDoneEvent = z.infer<typeof AgentDoneEventSchema>;
-export type ReportSectionEvent = z.infer<typeof ReportSectionEventSchema>;
 export type ErrorEvent = z.infer<typeof ErrorEventSchema>;
 export type DoneEvent = z.infer<typeof DoneEventSchema>;
 

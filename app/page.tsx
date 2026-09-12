@@ -1,4 +1,4 @@
-import { getLLMConfigStatus } from "@/lib/config";
+import { getLLMConfigStatus, PROVIDER_PRESETS } from "@/lib/config";
 import { BriefForm } from "@/components/brief-form";
 import { ConnectionTest } from "@/components/connection-test";
 
@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 
 export default function Home() {
   const status = getLLMConfigStatus();
+  const supportedVendors = Object.entries(PROVIDER_PRESETS)
+    .map(([key, preset]) => `${key}（${preset.model}）`)
+    .join(" / ");
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 p-8">
@@ -25,6 +28,9 @@ export default function Home() {
           <p className="mt-1 text-amber-700 dark:text-amber-400">
             请复制 <code>.env.example</code> 为 <code>.env</code>，填入你持有的一家厂商
             key。缺失项：{status.missing.join("、")}
+          </p>
+          <p className="mt-1 text-amber-700 dark:text-amber-400">
+            支持厂商：{supportedVendors}
           </p>
           <div className="mt-3">
             <ConnectionTest />
