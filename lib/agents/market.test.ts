@@ -46,10 +46,31 @@ describe("三个分析 Agent", () => {
     expect(result.output).toBe("竞品");
     expect(result.failed).toBe(false);
     expect(result.agentId).toBe(MARKET_AGENT_ID);
-    expect(events).toEqual([
-      { type: "agent:token", agentId: MARKET_AGENT_ID, delta: "竞" },
-      { type: "agent:token", agentId: MARKET_AGENT_ID, delta: "品" },
-    ]);
+    // 流式 token 会按围栏安全边界合并，故断言拼接结果而非逐片
+    const streamed = events
+      .filter((e) => e.type === "agent:token")
+      .map((e) => (e.type === "agent:token" ? e.delta : ""))
+      .join("");
+    expect(streamed).toBe("竞品");
+    expect(events.every((e) => e.type === "agent:token")).toBe(true);
+  });
+
+  it("流式阶段不把结构化元数据块吐给用户（只发正文）", async () => {
+    const raw = '正文X```json\n{"confidence":50}\n```';
+    const events: AgentEvent[] = [];
+    const result = await createMarketAgent().run(
+      parseProductBrief({ name: "X" }),
+      { provider: stubProvider([raw]), emit: (e) => events.push(e) },
+    );
+
+    const streamed = events
+      .filter((e) => e.type === "agent:token")
+      .map((e) => (e.type === "agent:token" ? e.delta : ""))
+      .join("");
+
+    expect(streamed).toBe("正文X");
+    expect(streamed).not.toContain("json");
+    expect(result.output).toBe("正文X");
   });
 
   it("解析结尾 JSON 块，填充 confidence/evidence 并从正文剥离（E2）", async () => {

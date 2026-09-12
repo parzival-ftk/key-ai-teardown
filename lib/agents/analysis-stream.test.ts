@@ -50,11 +50,10 @@ describe("createAnalysisStream（SSE 集成）", () => {
     expect(events.map((e) => e.type)).toEqual([
       "agent:start",
       "agent:token",
-      "agent:token",
       "agent:done",
       "done",
     ]);
-    expect(events[3]).toMatchObject({
+    expect(events[2]).toMatchObject({
       type: "agent:done",
       agentId: "market",
       output: "竞品",

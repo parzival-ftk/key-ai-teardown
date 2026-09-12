@@ -16,6 +16,9 @@ export interface FrameworkAgentConfig {
   frameworks: FrameworkTemplate[];
 }
 
+/** 结构化元数据块的起始围栏 —— 内容是给机器读的，不应流式展示给用户 */
+const METADATA_FENCE = "```json";
+
 export function createFrameworkAgent({
   id,
   name,
@@ -46,12 +49,35 @@ export function createFrameworkAgent({
       ];
 
       let raw = "";
+      let emitted = 0;
+      let metadataStarted = false;
+
+      const flushVisible = (upTo: number) => {
+        if (upTo <= emitted) return;
+        const delta = raw.slice(emitted, upTo);
+        emitted = upTo;
+        if (delta) ctx.emit({ type: "agent:token", agentId: id, delta });
+      };
+
       for await (const delta of ctx.provider.chatStream(messages, {
         signal: ctx.signal,
       })) {
         raw += delta;
-        ctx.emit({ type: "agent:token", agentId: id, delta });
+        if (metadataStarted) continue;
+
+        const fenceIndex = raw.indexOf(METADATA_FENCE);
+        if (fenceIndex !== -1) {
+          // 进入元数据区：只发出围栏之前的正文，之后不再 emit token
+          metadataStarted = true;
+          flushVisible(fenceIndex);
+        } else {
+          // 保留尾部（可能是围栏前缀，避免把 ``` 提前吐给用户）
+          flushVisible(Math.max(0, raw.length - (METADATA_FENCE.length - 1)));
+        }
       }
+
+      // 流结束且从未进入元数据区 → flush 剩余可见文本
+      if (!metadataStarted) flushVisible(raw.length);
 
       // 剥离结尾结构化元数据（置信度 + 证据标签）；解析失败自动降级为纯文本
       const { text, confidence, evidence } = parseStructuredOutput(raw);
