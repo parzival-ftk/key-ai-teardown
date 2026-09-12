@@ -1,12 +1,13 @@
 import { OUTPUT_RULES, renderBrief, type FrameworkTemplate } from "./types";
+import { USER_RESEARCH_AGENT_ID as RESEARCHER_AGENT_ID } from "@/lib/types/agent-ids";
 
 /**
- * 研究员 Agent 的 id（对应 lib/agents/user-research.ts 的 USER_RESEARCH_AGENT_ID）。
- *
- * W4「画像先行」的最小改动注入方式：访谈官从这里筛前序结果拿到研究员画像，
+ * W4「画像先行」的最小改动注入方式：访谈官从前序结果里筛出研究员画像，
  * **不改动 orchestrator 的调度结构**（依赖图的债见 lib/agents/analysis-stream.ts）。
+ *
+ * RESEARCHER_AGENT_ID 来自公共常量模块（编译期绑定），上游 id 漂移会导致编译/测试失败，
+ * 而不是静默走软降级。
  */
-const RESEARCHER_AGENT_ID = "user-research";
 
 export const interviewer: FrameworkTemplate = {
   id: "interviewer",
@@ -29,7 +30,9 @@ export const interviewer: FrameworkTemplate = {
 
 ${OUTPUT_RULES}`,
   userPrompt: (brief, priorResults) => {
-    // W4：研究员画像先行 —— 只采用「成功且有内容」的研究员结果；否则软降级为自主访谈
+    // W4：研究员画像先行 —— 只采用「成功且有内容」的研究员结果；否则软降级为自主访谈。
+    // 注：这是**存在性代理**门控（非 failed 且非空），不校验输出里真的含 persona ——
+    // 对 LLM 自由文本无法廉价做语义校验，故把边界交给下游提示词（「若无画像则自行立」）。
     const research = priorResults?.find(
       (r) =>
         r.agentId === RESEARCHER_AGENT_ID && !r.failed && r.output.trim() !== "",

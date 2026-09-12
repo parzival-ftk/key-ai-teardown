@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { interviewer } from "./interviewer";
 import { parseProductBrief } from "@/lib/types/brief";
+import { USER_RESEARCH_AGENT_ID } from "@/lib/types/agent-ids";
 import type { AgentResult } from "@/lib/types/agent";
 
 const brief = parseProductBrief({
@@ -21,16 +22,16 @@ describe("访谈官框架：画像先行（W4）", () => {
 
   it("研究员失败（失败标记或空产出）时不采用，走软降级", () => {
     expect(
-      interviewer.userPrompt(brief, [result("user-research", "", true)]),
+      interviewer.userPrompt(brief, [result(USER_RESEARCH_AGENT_ID, "", true)]),
     ).toMatch(/未获得|自行/);
     expect(
-      interviewer.userPrompt(brief, [result("user-research", "   ")]),
+      interviewer.userPrompt(brief, [result(USER_RESEARCH_AGENT_ID, "   ")]),
     ).toMatch(/未获得|自行/);
   });
 
   it("研究员有产出时，其画像被注入 prompt 作为访谈对象", () => {
     const persona = "Persona-A 知识管家：把 Notion 当作第二大脑。";
-    const p = interviewer.userPrompt(brief, [result("user-research", persona)]);
+    const p = interviewer.userPrompt(brief, [result(USER_RESEARCH_AGENT_ID, persona)]);
     expect(p).toContain(persona);
     expect(p).toMatch(/访谈对象|以此为/);
   });
@@ -38,7 +39,7 @@ describe("访谈官框架：画像先行（W4）", () => {
   it("只筛 user-research 的结果，不误用其他 Agent 的产出", () => {
     const p = interviewer.userPrompt(brief, [
       result("market", "市场分析内容XYZ"),
-      result("user-research", "研究员画像ABC"),
+      result(USER_RESEARCH_AGENT_ID, "研究员画像ABC"),
     ]);
     expect(p).toContain("研究员画像ABC");
     expect(p).not.toContain("市场分析内容XYZ");
