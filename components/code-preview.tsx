@@ -3,12 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { buildPreviewDoc } from "@/lib/report/preview-doc";
 
-interface SelectedInfo {
-  tag: string;
-  className: string;
-}
-
-/** 选中高亮色（改回后需清掉，导出时也剥掉，避免污染代码） */
+/** 选中高亮色（导出时会连同选中属性一起剥掉，避免污染代码） */
 const SELECT_OUTLINE = "2px solid #2563eb";
 const SELECT_ATTR = "data-key-selected";
 
@@ -26,7 +21,7 @@ const SELECT_ATTR = "data-key-selected";
  */
 export function CodePreview({ html }: { html: string }) {
   const [cssHref, setCssHref] = useState("");
-  const [selected, setSelected] = useState<SelectedInfo | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [classDraft, setClassDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -59,7 +54,7 @@ export function CodePreview({ html }: { html: string }) {
         target.style.outline = SELECT_OUTLINE;
         target.setAttribute(SELECT_ATTR, "1");
         const cls = target.getAttribute("class") ?? "";
-        setSelected({ tag: target.tagName.toLowerCase(), className: cls });
+        setSelectedTag(target.tagName.toLowerCase());
         setClassDraft(cls);
       });
     };
@@ -76,7 +71,6 @@ export function CodePreview({ html }: { html: string }) {
     const el = doc?.querySelector(`[${SELECT_ATTR}]`);
     if (!el) return;
     el.setAttribute("class", classDraft);
-    setSelected((s) => (s ? { ...s, className: classDraft } : s));
   }
 
   async function copyEdited() {
@@ -118,11 +112,9 @@ export function CodePreview({ html }: { html: string }) {
         srcDoc={buildPreviewDoc(html, cssHref)}
       />
 
-      {selected && (
+      {selectedTag && (
         <div className="mt-2 flex flex-col gap-1 rounded-lg border border-gray-200 p-2 text-xs dark:border-gray-800">
-          <div className="text-gray-400">
-            已选中 &lt;{selected.tag}&gt;
-          </div>
+          <div className="text-gray-400">已选中 &lt;{selectedTag}&gt;</div>
           <div className="flex gap-2">
             <input
               value={classDraft}
