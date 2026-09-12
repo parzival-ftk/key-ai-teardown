@@ -132,6 +132,7 @@ docs/                  设计规格 · 演示脚本
 ```bash
 npm run test        # Vitest：单元 + 集成（264 用例）
 npm run typecheck   # tsc --noEmit
+npm run lint        # ESLint（Next 16 flat config）
 npm run build       # 生产构建
 npm run eval        # 质量门禁：judge 按 rubric 打分并与基线对比（需真实 LLM）
 ```

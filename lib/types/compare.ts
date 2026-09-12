@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProductBriefSchema, type ProductBrief } from "./brief";
+import { ProductBriefSchema } from "./brief";
 
 /**
  * 对比输入（W11 · 对比矩阵）—— 一次输入 2-3 个产品做并列对比。
