@@ -13,8 +13,8 @@ const brief = parseProductBrief({
 });
 
 describe("框架提示词库", () => {
-  it("导出十一个框架，id 齐全", () => {
-    expect(FRAMEWORK_LIST).toHaveLength(11);
+  it("导出十二个框架，id 齐全", () => {
+    expect(FRAMEWORK_LIST).toHaveLength(12);
     expect(Object.keys(FRAMEWORKS).sort()).toEqual([
       "aarrr",
       "business-canvas",
@@ -26,6 +26,7 @@ describe("框架提示词库", () => {
       "prd",
       "swot",
       "synthesis",
+      "ui-code",
       "visual-design",
     ]);
   });
@@ -88,6 +89,14 @@ describe("框架提示词库", () => {
       expect(fw.systemPrompt).toContain(kw);
     }
     // 心智模型：产出的是「参考起点」，必须自己设计，不照搬
+    expect(fw.systemPrompt).toContain("自行设计");
+  });
+
+  it("界面代码框架要求 HTML + Tailwind，且声明「参考起点、自行设计」（W6）", () => {
+    const fw = FRAMEWORKS["ui-code"];
+    expect(fw).toBeDefined();
+    expect(fw.systemPrompt).toContain("Tailwind");
+    expect(fw.systemPrompt).toContain("参考起点");
     expect(fw.systemPrompt).toContain("自行设计");
   });
 });

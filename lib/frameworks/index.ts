@@ -9,6 +9,7 @@ import { devilsAdvocate } from "./devils-advocate";
 import { synthesis } from "./synthesis";
 import { prd } from "./prd";
 import { visualDesign } from "./visual-design";
+import { uiCode } from "./ui-code";
 import type { FrameworkTemplate } from "./types";
 
 export {
@@ -23,6 +24,7 @@ export {
   synthesis,
   prd,
   visualDesign,
+  uiCode,
 };
 export { renderBrief, OUTPUT_RULES } from "./types";
 export type { FrameworkTemplate } from "./types";
@@ -40,6 +42,7 @@ export const FRAMEWORKS: Record<string, FrameworkTemplate> = {
   [synthesis.id]: synthesis,
   [prd.id]: prd,
   [visualDesign.id]: visualDesign,
+  [uiCode.id]: uiCode,
 };
 
 export const FRAMEWORK_LIST: FrameworkTemplate[] = Object.values(FRAMEWORKS);
