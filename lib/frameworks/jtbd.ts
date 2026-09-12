@@ -12,6 +12,8 @@ export const jtbd: FrameworkTemplate = {
 3. 每个画像的 2-3 条 unmet needs（尚未被满足的需求）。
 4. 2-3 句用户原话（模拟真实语气，标注为「模拟」）。
 
+注意：你确立的 persona 会**直接作为「用户访谈官」的访谈对象**（画像先行），因此请让画像具体、带鲜明的行为特征与场景，便于围绕它们展开后续访谈。
+
 ${OUTPUT_RULES}`,
   userPrompt: (brief) => `请做 JTBD 用户分析：\n${renderBrief(brief)}`,
 };
