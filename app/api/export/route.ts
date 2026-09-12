@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reportToMarkdown } from "@/lib/export/report-markdown";
+import type { Evidence } from "@/lib/types/evidence";
 import {
   parseUserStories,
   buildIssues,
@@ -21,7 +22,13 @@ export const dynamic = "force-dynamic";
 
 interface ExportBody {
   name?: string;
-  sections?: { agentId: string; name?: string; output: string }[];
+  sections?: {
+    agentId: string;
+    name?: string;
+    output: string;
+    /** 证据标签（W2 起由前端随 sections 一并 POST，透传给 Markdown 导出） */
+    evidence?: Evidence[];
+  }[];
   format?: "markdown" | "issues" | "issues-json";
 }
 

@@ -70,4 +70,29 @@ describe("POST /api/export（Wave 5.5）", () => {
     });
     expect((await POST(req)).status).toBe(400);
   });
+
+  it("证据标签随导出透传到 Markdown（补该 HTTP 层覆盖）", async () => {
+    const res = await POST(
+      makeRequest({
+        name: "Notion",
+        sections: [
+          {
+            agentId: "market",
+            output: "市场分析正文",
+            evidence: [
+              {
+                claim: "官网地址",
+                label: "verified",
+                source: "https://notion.so",
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const md = await res.text();
+    expect(md).toContain("[已核实] 官网地址");
+    expect(md).toContain("https://notion.so");
+  });
 });
