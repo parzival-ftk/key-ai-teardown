@@ -14,6 +14,7 @@ import {
 } from "@/lib/types/evidence";
 import { EvidenceList } from "./evidence-list";
 import { CodePanel } from "./code-panel";
+import { CodePreview } from "./code-preview";
 import { extractCodeBlocks, stripCodeBlocks } from "@/lib/report/code-blocks";
 
 /**
@@ -231,6 +232,7 @@ export function ReportView({
               </p>
             ) : null}
             <CodePanel blocks={codeBlocks} />
+            {codeBlocks[0] ? <CodePreview html={codeBlocks[0].code} /> : null}
             {/* 证据与正文独立渲染：正文为空但有证据时不应被连带丢弃（审查修复） */}
             <EvidenceList evidence={sectionData?.evidence ?? []} />
           </section>

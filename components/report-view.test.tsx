@@ -67,4 +67,23 @@ describe("报告页证据渲染边界", () => {
     // 正文里不再残留围栏标记
     expect(html).not.toContain("```");
   });
+
+  it("界面代码段：渲染只读预览 iframe（沙箱、不执行脚本，W7）", () => {
+    const html = render({
+      name: "X",
+      sections: [
+        {
+          agentId: "ui-code",
+          name: "界面代码生成师",
+          status: "done",
+          output: '说明\n```html\n<div class="p-4">hi</div>\n```',
+        },
+      ],
+    });
+    expect(html).toContain("<iframe");
+    expect(html).toContain("预览（只读）");
+    expect(html).toContain("p-4");
+    // 只读预览不执行脚本：骨架里不得出现 script
+    expect(html).not.toContain("<script");
+  });
 });
