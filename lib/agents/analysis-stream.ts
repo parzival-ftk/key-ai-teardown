@@ -5,6 +5,10 @@ import {
   USER_RESEARCH_AGENT_ID,
 } from "./user-research";
 import { createBusinessAgent, BUSINESS_AGENT_ID } from "./business";
+import {
+  createVisualDesignAgent,
+  VISUAL_DESIGN_AGENT_ID,
+} from "./visual-design";
 import { createInterviewerAgent } from "./interviewer";
 import { createDevilsAdvocateAgent } from "./devils-advocate";
 import { createSynthesisAgent } from "./synthesis";
@@ -30,7 +34,8 @@ export interface AnalysisStreamOptions {
 
 /**
  * 默认编队（数组顺序即调度顺序）：
- *   三个分析 Agent 并行 → 用户访谈官 → 反方质疑官 → PM 综合官 → PRD 撰写官
+ *   market / user-research / business / visual-design 四个分析 Agent 并行
+ *   → 用户访谈官 → 反方质疑官 → PM 综合官 → PRD 撰写官
  *
  * W4「画像先行」：用户访谈官移入串行组 —— 它要读到用户研究员已确立的 persona，
  * 必须等并行组全部完成后才跑（串行组天然能看到「此前所有已完成结果」）。
@@ -47,17 +52,19 @@ export function createDefaultAgents(): Agent[] {
     createUserResearchAgent(),
     createInterviewerAgent(),
     createBusinessAgent(),
+    createVisualDesignAgent(),
     createDevilsAdvocateAgent(),
     createSynthesisAgent(),
     createPrdAgent(),
   ];
 }
 
-/** 默认并行组：三个分析 Agent 同时跑（spec §5「并行分析」）；访谈官在 W4 移入串行组 */
+/** 默认并行组：四个分析 Agent 同时跑（spec §5「并行分析」）；访谈官在 W4 移入串行组 */
 export const DEFAULT_PARALLEL_AGENT_IDS: string[] = [
   MARKET_AGENT_ID,
   USER_RESEARCH_AGENT_ID,
   BUSINESS_AGENT_ID,
+  VISUAL_DESIGN_AGENT_ID,
 ];
 
 export function createAnalysisStream(
