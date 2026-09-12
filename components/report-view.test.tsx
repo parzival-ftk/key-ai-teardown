@@ -68,7 +68,7 @@ describe("报告页证据渲染边界", () => {
     expect(html).not.toContain("```");
   });
 
-  it("界面代码段：渲染只读预览 iframe（沙箱、不执行脚本，W7）", () => {
+  it("界面代码段：渲染可交互预览 iframe（allow-same-origin + 脚本已剥，W7）", () => {
     const html = render({
       name: "X",
       sections: [
@@ -81,9 +81,10 @@ describe("报告页证据渲染边界", () => {
       ],
     });
     expect(html).toContain("<iframe");
-    expect(html).toContain("预览（只读）");
+    expect(html).toContain("预览（点击元素可选中并改 class）");
+    expect(html).toContain('sandbox="allow-same-origin"');
     expect(html).toContain("p-4");
-    // 只读预览不执行脚本：骨架里不得出现 script
+    // srcdoc 已剥脚本：骨架里不得出现 script
     expect(html).not.toContain("<script");
   });
 });
