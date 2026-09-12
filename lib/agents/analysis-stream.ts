@@ -23,7 +23,7 @@ export interface AnalysisStreamOptions {
   provider: LLMProvider;
   /** 默认完整编队；可注入以测试 */
   agents?: Agent[];
-  /** 默认四个分析 Agent 全并行 */
+  /** 默认并行组：三个分析 Agent（用户访谈官已在 W4 移入串行组以复用研究员画像） */
   parallel?: string[];
   signal?: AbortSignal;
 }

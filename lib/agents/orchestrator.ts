@@ -14,7 +14,7 @@ export interface OrchestratorOptions {
   provider: LLMProvider;
   /** 要执行的 Agent（数组顺序决定结果顺序） */
   agents: Agent[];
-  /** 这些 id 的 Agent 并行执行（前三分析并行）；未列出的按顺序串行 */
+  /** 这些 id 的 Agent 并行执行（当前默认：market / user-research / business 三个分析 Agent）；未列出的按数组顺序串行 */
   parallel?: string[];
   signal?: AbortSignal;
 }
