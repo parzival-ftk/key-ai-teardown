@@ -87,4 +87,57 @@ describe("runAnalysis 编排", () => {
       agentId: "good",
     });
   });
+
+  it("parallel 列表中的 Agent 并发启动（所有 start 早于第一个 done）", async () => {
+    const events: AgentEvent[] = [];
+    await runAnalysis(
+      brief,
+      {
+        provider: stubProvider(["x"]),
+        agents: [tokenAgent("a"), tokenAgent("b"), tokenAgent("c")],
+        parallel: ["a", "b", "c"],
+      },
+      (e) => events.push(e),
+    );
+
+    const startIndices = events
+      .map((e, i) => (e.type === "agent:start" ? i : -1))
+      .filter((i) => i >= 0);
+    const firstDoneIndex = events.findIndex((e) => e.type === "agent:done");
+
+    expect(startIndices).toHaveLength(3);
+    // 三个 Agent 的 start 都发生在第一个 done 之前 → 说明是并发而非逐个串行
+    expect(Math.max(...startIndices)).toBeLessThan(firstDoneIndex);
+  });
+
+  it("结果按 agents 原顺序返回（与完成先后无关）", async () => {
+    const results = await runAnalysis(
+      brief,
+      {
+        provider: stubProvider(["x"]),
+        agents: [tokenAgent("a"), tokenAgent("b"), tokenAgent("c")],
+        parallel: ["a", "b", "c"],
+      },
+      () => {},
+    );
+    expect(results.map((r) => r.agentId)).toEqual(["a", "b", "c"]);
+  });
+
+  it("混合模式：并行组先跑完，串行组的 start 在其后", async () => {
+    const events: AgentEvent[] = [];
+    await runAnalysis(
+      brief,
+      {
+        provider: stubProvider(["x"]),
+        agents: [tokenAgent("p1"), tokenAgent("p2"), tokenAgent("s1")],
+        parallel: ["p1", "p2"],
+      },
+      (e) => events.push(e),
+    );
+
+    const order = events
+      .filter((e) => e.type === "agent:start")
+      .map((e) => (e.type === "agent:start" ? e.agentId : ""));
+    expect(order).toEqual(["p1", "p2", "s1"]);
+  });
 });

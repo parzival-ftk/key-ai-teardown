@@ -1,5 +1,10 @@
 import { runAnalysis } from "./orchestrator";
-import { createMarketAgent } from "./market";
+import { createMarketAgent, MARKET_AGENT_ID } from "./market";
+import {
+  createUserResearchAgent,
+  USER_RESEARCH_AGENT_ID,
+} from "./user-research";
+import { createBusinessAgent, BUSINESS_AGENT_ID } from "./business";
 import type { Agent } from "@/lib/types/agent";
 import type { ProductBrief } from "@/lib/types/brief";
 import type { LLMProvider } from "@/lib/llm/provider";
@@ -12,17 +17,36 @@ import { serializeAgentEvent, type AgentEvent } from "@/lib/types/events";
 
 export interface AnalysisStreamOptions {
   provider: LLMProvider;
-  /** 默认仅竞品分析师（Wave 1）；Wave 2 起注入完整编队 */
+  /** 默认完整编队（竞品 / 用户 / 商业模式）；可注入以测试 */
   agents?: Agent[];
+  /** 默认前三并行 */
+  parallel?: string[];
   signal?: AbortSignal;
 }
+
+/** 默认编队：三个分析 Agent */
+export function createDefaultAgents(): Agent[] {
+  return [
+    createMarketAgent(),
+    createUserResearchAgent(),
+    createBusinessAgent(),
+  ];
+}
+
+/** 默认并行组：三个分析 Agent 同时跑（spec §5 的「并行分析」） */
+export const DEFAULT_PARALLEL_AGENT_IDS: string[] = [
+  MARKET_AGENT_ID,
+  USER_RESEARCH_AGENT_ID,
+  BUSINESS_AGENT_ID,
+];
 
 export function createAnalysisStream(
   brief: ProductBrief,
   options: AnalysisStreamOptions,
 ): ReadableStream<Uint8Array> {
   const { provider, signal } = options;
-  const agents = options.agents ?? [createMarketAgent()];
+  const agents = options.agents ?? createDefaultAgents();
+  const parallel = options.parallel ?? DEFAULT_PARALLEL_AGENT_IDS;
   const encoder = new TextEncoder();
 
   return new ReadableStream<Uint8Array>({
@@ -31,7 +55,7 @@ export function createAnalysisStream(
         controller.enqueue(encoder.encode(serializeAgentEvent(event)));
       };
       try {
-        await runAnalysis(brief, { provider, agents, signal }, emit);
+        await runAnalysis(brief, { provider, agents, parallel, signal }, emit);
       } catch (err) {
         emit({
           type: "error",

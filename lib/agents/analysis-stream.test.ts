@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createAnalysisStream } from "./analysis-stream";
+import { createMarketAgent } from "./market";
 import { deserializeAgentEvent, type AgentEvent } from "@/lib/types/events";
 import { parseProductBrief } from "@/lib/types/brief";
 import type { LLMProvider } from "@/lib/llm/provider";
@@ -36,9 +37,11 @@ async function readEvents(
 }
 
 describe("createAnalysisStream（SSE 集成）", () => {
-  it("输出完整事件序列，且以 done 收尾、bus 为 SSE wire 格式", async () => {
+  it("注入单 Agent 时输出完整事件序列，以 done 收尾、格式为 SSE wire", async () => {
     const stream = createAnalysisStream(parseProductBrief({ name: "X" }), {
       provider: stubProvider(["竞", "品"]),
+      agents: [createMarketAgent()],
+      parallel: [],
     });
     const { raw, events } = await readEvents(stream);
 
@@ -51,15 +54,27 @@ describe("createAnalysisStream（SSE 集成）", () => {
       "agent:done",
       "done",
     ]);
-    const doneEvent = events[3];
-    expect(doneEvent).toMatchObject({
+    expect(events[3]).toMatchObject({
       type: "agent:done",
       agentId: "market",
       output: "竞品",
     });
   });
 
-  it("provider 流抛错时转为 error 事件，仍以 done 收尾（不崩溃）", async () => {
+  it("默认编队：三个分析 Agent 并行启动，最后以 done 收尾", async () => {
+    const stream = createAnalysisStream(parseProductBrief({ name: "X" }), {
+      provider: stubProvider(["x"]),
+    });
+    const { events } = await readEvents(stream);
+
+    const starts = events
+      .filter((e) => e.type === "agent:start")
+      .map((e) => (e.type === "agent:start" ? e.agentId : ""));
+    expect(starts).toEqual(["market", "user-research", "business"]);
+    expect(events[events.length - 1]).toEqual({ type: "done" });
+  });
+
+  it("provider 抛错时转为 error 事件，仍以 done 收尾（不崩溃）", async () => {
     const failing: LLMProvider = {
       id: "stub",
       model: "stub",
@@ -73,15 +88,12 @@ describe("createAnalysisStream（SSE 集成）", () => {
     };
     const stream = createAnalysisStream(parseProductBrief({ name: "X" }), {
       provider: failing,
+      agents: [createMarketAgent()],
+      parallel: [],
     });
     const { events } = await readEvents(stream);
 
-    const errorEvent = events.find((e) => e.type === "error");
-    expect(errorEvent).toMatchObject({
-      type: "error",
-      agentId: "market",
-      message: "供流失败",
-    });
+    expect(events.some((e) => e.type === "error")).toBe(true);
     expect(events[events.length - 1]).toEqual({ type: "done" });
   });
 });

@@ -9,10 +9,10 @@ import Link from "next/link";
  */
 const SECTIONS = [
   { key: "summary", title: "执行摘要", owner: "PM 综合官" },
-  { key: "landscape", title: "市场格局", owner: "竞品分析师" },
-  { key: "competitors", title: "竞品画像", owner: "竞品分析师" },
-  { key: "strengths", title: "竞品优势", owner: "竞品分析师" },
-  { key: "gaps", title: "空白与机会", owner: "PM 综合官" },
+  { key: "market", title: "市场与竞争格局", owner: "竞品分析师" },
+  { key: "users", title: "用户与场景", owner: "用户研究员" },
+  { key: "business", title: "商业模式", owner: "商业模式分析师" },
+  { key: "gaps", title: "竞品优势与空白", owner: "PM 综合官" },
   { key: "threats", title: "值得警惕的威胁", owner: "反方质疑官" },
   { key: "recommendations", title: "建议", owner: "PM 综合官" },
 ] as const;
@@ -72,9 +72,12 @@ export function ReportView({ id }: { id: string }) {
     );
   }
 
-  const landscape = data.sections.find((s) => s.agentId === "market");
+  const byAgent = (agentId: string) =>
+    data.sections.find((s) => s.agentId === agentId)?.output;
   const contentByKey: Record<string, string | undefined> = {
-    landscape: landscape?.output,
+    market: byAgent("market"),
+    users: byAgent("user-research"),
+    business: byAgent("business"),
   };
 
   return (

@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
-import {
-  createMarketAgent,
-  buildMarketMessages,
-  MARKET_AGENT_ID,
-} from "./market";
+import { createMarketAgent, MARKET_AGENT_ID } from "./market";
+import { createUserResearchAgent, USER_RESEARCH_AGENT_ID } from "./user-research";
+import { createBusinessAgent, BUSINESS_AGENT_ID } from "./business";
 import type { LLMProvider } from "@/lib/llm/provider";
 import type { AgentEvent } from "@/lib/types/events";
 import { parseProductBrief } from "@/lib/types/brief";
@@ -21,29 +19,23 @@ function stubProvider(chunks: string[]): LLMProvider {
   };
 }
 
-describe("竞品分析师 Agent", () => {
-  it("buildMarketMessages 产出 system + user，且带上产品信息", () => {
-    const messages = buildMarketMessages(
-      parseProductBrief({ name: "Notion", description: "协作文档工具" }),
-    );
-    expect(messages[0].role).toBe("system");
-    expect(messages[1].role).toBe("user");
-    expect(messages[1].content).toContain("Notion");
-    expect(messages[1].content).toContain("协作文档工具");
+describe("三个分析 Agent", () => {
+  it("各自的 id / name / 框架绑定正确", () => {
+    expect(createMarketAgent()).toMatchObject({
+      id: MARKET_AGENT_ID,
+      name: "竞品分析师",
+    });
+    expect(createUserResearchAgent()).toMatchObject({
+      id: USER_RESEARCH_AGENT_ID,
+      name: "用户研究员",
+    });
+    expect(createBusinessAgent()).toMatchObject({
+      id: BUSINESS_AGENT_ID,
+      name: "商业模式分析师",
+    });
   });
 
-  it("共创模式使用不同的引导语", () => {
-    const teardown = buildMarketMessages(
-      parseProductBrief({ name: "X", mode: "teardown" }),
-    );
-    const coCreate = buildMarketMessages(
-      parseProductBrief({ name: "X", mode: "co-create" }),
-    );
-    expect(teardown[1].content).toContain("待分析的产品信息");
-    expect(coCreate[1].content).toContain("尚未落地");
-  });
-
-  it("run 流式产出、汇聚 output 并发 token 事件", async () => {
+  it("run 流式产出并汇聚 output、发 token 事件", async () => {
     const events: AgentEvent[] = [];
     const agent = createMarketAgent();
     const result = await agent.run(parseProductBrief({ name: "X" }), {
@@ -58,5 +50,19 @@ describe("竞品分析师 Agent", () => {
       { type: "agent:token", agentId: MARKET_AGENT_ID, delta: "竞" },
       { type: "agent:token", agentId: MARKET_AGENT_ID, delta: "品" },
     ]);
+  });
+});
+
+describe("createFrameworkAgent 工厂", () => {
+  it("空框架数组抛错", async () => {
+    const { createFrameworkAgent } = await import("./framework-agent");
+    expect(() =>
+      createFrameworkAgent({
+        id: "x",
+        name: "x",
+        description: "x",
+        frameworks: [],
+      }),
+    ).toThrow();
   });
 });

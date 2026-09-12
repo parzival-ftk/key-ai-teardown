@@ -12,8 +12,10 @@ import type { LLMProvider } from "@/lib/llm/provider";
 
 export interface OrchestratorOptions {
   provider: LLMProvider;
-  /** Wave 1 为单 Agent；Wave 2 起支持多 Agent 并行调度 */
+  /** 要执行的 Agent（数组顺序决定结果顺序） */
   agents: Agent[];
+  /** 这些 id 的 Agent 并行执行（前三分析并行）；未列出的按顺序串行 */
+  parallel?: string[];
   signal?: AbortSignal;
 }
 
@@ -23,9 +25,10 @@ export async function runAnalysis(
   emit: (event: AgentEvent) => void,
 ): Promise<AgentResult[]> {
   const { provider, agents, signal } = options;
-  const results: AgentResult[] = [];
+  const parallelIds = new Set(options.parallel ?? []);
+  const results = new Map<string, AgentResult>();
 
-  for (const agent of agents) {
+  const runOne = async (agent: Agent): Promise<AgentResult> => {
     emit({ type: "agent:start", agentId: agent.id, name: agent.name });
     const ctx: AgentContext = { provider, emit, signal };
     try {
@@ -36,19 +39,33 @@ export async function runAnalysis(
         output: result.output,
         confidence: result.confidence,
       });
-      results.push(result);
+      return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : "未知错误";
       emit({ type: "error", agentId: agent.id, message });
-      results.push({
+      return {
         agentId: agent.id,
         output: "",
         evidence: [],
         failed: true,
         error: message,
-      });
+      };
     }
+  };
+
+  // 并行组：同时启动，互不阻塞
+  const parallelAgents = agents.filter((a) => parallelIds.has(a.id));
+  if (parallelAgents.length > 0) {
+    const settled = await Promise.all(parallelAgents.map((a) => runOne(a)));
+    parallelAgents.forEach((a, i) => results.set(a.id, settled[i]));
   }
 
-  return results;
+  // 串行组：逐个执行（后续 Wave 的辩论 → 综合 → PRD 走这里）
+  for (const agent of agents) {
+    if (parallelIds.has(agent.id)) continue;
+    results.set(agent.id, await runOne(agent));
+  }
+
+  // 按 agents 原顺序返回，保证下游消费稳定
+  return agents.map((a) => results.get(a.id)!);
 }
