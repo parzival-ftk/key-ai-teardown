@@ -21,3 +21,17 @@ export const EvidenceSchema = z.object({
   source: z.string().optional(),
 });
 export type Evidence = z.infer<typeof EvidenceSchema>;
+
+/** 证据标签计数（W2：可信度层贯通；W3：报告顶部总览条用） */
+export interface EvidenceStats {
+  verified: number;
+  inferred: number;
+  missing: number;
+}
+
+/** 统计一组证据的标签分布（纯函数） */
+export function summarizeEvidence(evidence: Evidence[]): EvidenceStats {
+  const stats: EvidenceStats = { verified: 0, inferred: 0, missing: 0 };
+  for (const e of evidence) stats[e.label] += 1;
+  return stats;
+}
