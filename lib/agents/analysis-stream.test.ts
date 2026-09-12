@@ -60,7 +60,7 @@ describe("createAnalysisStream（SSE 集成）", () => {
     });
   });
 
-  it("默认编队：三个分析 Agent 并行启动，最后以 done 收尾", async () => {
+  it("默认编队：3 个分析 Agent 并行，访谈官与后续 Agent 串行，最后以 done 收尾", async () => {
     const stream = createAnalysisStream(parseProductBrief({ name: "X" }), {
       provider: stubProvider(["x"]),
     });
@@ -78,6 +78,18 @@ describe("createAnalysisStream（SSE 集成）", () => {
       "synthesis",
       "prd",
     ]);
+
+    // W4 画像先行：访谈官移出并行组，其 start 必须晚于研究员（并行组）的 done，
+    // 否则它读不到画像。
+    const researchDone = events.findIndex(
+      (e) => e.type === "agent:done" && e.agentId === "user-research",
+    );
+    const interviewerStart = events.findIndex(
+      (e) => e.type === "agent:start" && e.agentId === "interviewer",
+    );
+    expect(researchDone).toBeGreaterThanOrEqual(0);
+    expect(interviewerStart).toBeGreaterThan(researchDone);
+
     // 辩论/综合在分析组之后（串行）：devils-advocate 的 start 晚于 market 的 done
     const marketDone = events.findIndex(
       (e) => e.type === "agent:done" && e.agentId === "market",
