@@ -140,4 +140,28 @@ describe("runAnalysis 编排", () => {
       .map((e) => (e.type === "agent:start" ? e.agentId : ""));
     expect(order).toEqual(["p1", "p2", "s1"]);
   });
+
+  it("串行 Agent 能收到前序结果（priorResults）", async () => {
+    const seen: string[][] = [];
+    const spy: Agent = {
+      id: "spy",
+      name: "spy",
+      description: "",
+      async run(_b, ctx) {
+        seen.push((ctx.priorResults ?? []).map((r) => r.agentId));
+        return { agentId: "spy", output: "ok", evidence: [], failed: false };
+      },
+    };
+    await runAnalysis(
+      brief,
+      {
+        provider: stubProvider(["x"]),
+        agents: [tokenAgent("a"), tokenAgent("b"), spy],
+        parallel: ["a", "b"],
+      },
+      () => {},
+    );
+    // 串行 Agent 看到的是并行组全部结果
+    expect(seen[0]).toEqual(["a", "b"]);
+  });
 });

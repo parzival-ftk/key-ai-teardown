@@ -28,9 +28,12 @@ export async function runAnalysis(
   const parallelIds = new Set(options.parallel ?? []);
   const results = new Map<string, AgentResult>();
 
-  const runOne = async (agent: Agent): Promise<AgentResult> => {
+  const runOne = async (
+    agent: Agent,
+    priorResults: AgentResult[],
+  ): Promise<AgentResult> => {
     emit({ type: "agent:start", agentId: agent.id, name: agent.name });
-    const ctx: AgentContext = { provider, emit, signal };
+    const ctx: AgentContext = { provider, emit, signal, priorResults };
     try {
       const result = await agent.run(brief, ctx);
       emit({
@@ -53,17 +56,20 @@ export async function runAnalysis(
     }
   };
 
-  // 并行组：同时启动，互不阻塞
+  // 并行组：同时启动，互不阻塞（彼此看不到对方结果）
   const parallelAgents = agents.filter((a) => parallelIds.has(a.id));
   if (parallelAgents.length > 0) {
-    const settled = await Promise.all(parallelAgents.map((a) => runOne(a)));
+    const settled = await Promise.all(parallelAgents.map((a) => runOne(a, [])));
     parallelAgents.forEach((a, i) => results.set(a.id, settled[i]));
   }
 
-  // 串行组：逐个执行（后续 Wave 的辩论 → 综合 → PRD 走这里）
+  // 串行组：逐个执行，且能看到此前所有已完成的结果（辩论 / 综合 / PRD 走这里）
   for (const agent of agents) {
     if (parallelIds.has(agent.id)) continue;
-    results.set(agent.id, await runOne(agent));
+    const priorResults = agents
+      .filter((a) => results.has(a.id))
+      .map((a) => results.get(a.id)!);
+    results.set(agent.id, await runOne(agent, priorResults));
   }
 
   // 按 agents 原顺序返回，保证下游消费稳定

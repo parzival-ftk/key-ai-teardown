@@ -51,6 +51,8 @@ export interface AgentContext {
   provider: LLMProvider;
   /** 发射 SSE 事件（agent:start / token / done） */
   emit: (event: AgentEvent) => void;
+  /** 前序 Agent 的结果（辩论/综合类 Agent 依赖它，如反方质疑官读前三者输出） */
+  priorResults?: AgentResult[];
   signal?: AbortSignal;
 }
 

@@ -5,6 +5,8 @@ import { businessCanvas } from "./business-canvas";
 import { aarrr } from "./aarrr";
 import { interviewer } from "./interviewer";
 import { competitorProfiles } from "./competitor-profiles";
+import { devilsAdvocate } from "./devils-advocate";
+import { synthesis } from "./synthesis";
 import type { FrameworkTemplate } from "./types";
 
 export {
@@ -15,6 +17,8 @@ export {
   aarrr,
   interviewer,
   competitorProfiles,
+  devilsAdvocate,
+  synthesis,
 };
 export { renderBrief, OUTPUT_RULES } from "./types";
 export type { FrameworkTemplate } from "./types";
@@ -28,6 +32,8 @@ export const FRAMEWORKS: Record<string, FrameworkTemplate> = {
   [aarrr.id]: aarrr,
   [interviewer.id]: interviewer,
   [competitorProfiles.id]: competitorProfiles,
+  [devilsAdvocate.id]: devilsAdvocate,
+  [synthesis.id]: synthesis,
 };
 
 export const FRAMEWORK_LIST: FrameworkTemplate[] = Object.values(FRAMEWORKS);

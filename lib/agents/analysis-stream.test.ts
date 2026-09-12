@@ -75,7 +75,18 @@ describe("createAnalysisStream（SSE 集成）", () => {
       "user-research",
       "business",
       "interviewer",
+      "devils-advocate",
+      "synthesis",
     ]);
+    // 辩论/综合在分析组之后（串行）：devils-advocate 的 start 晚于 market 的 done
+    const marketDone = events.findIndex(
+      (e) => e.type === "agent:done" && e.agentId === "market",
+    );
+    const devilStart = events.findIndex(
+      (e) => e.type === "agent:start" && e.agentId === "devils-advocate",
+    );
+    expect(marketDone).toBeGreaterThanOrEqual(0);
+    expect(devilStart).toBeGreaterThan(marketDone);
     expect(events[events.length - 1]).toEqual({ type: "done" });
   });
 

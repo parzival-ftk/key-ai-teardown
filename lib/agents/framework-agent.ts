@@ -38,7 +38,9 @@ export function createFrameworkAgent({
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: frameworks.map((f) => f.userPrompt(brief)).join("\n\n"),
+          content: frameworks
+            .map((f) => f.userPrompt(brief, ctx.priorResults))
+            .join("\n\n"),
         },
       ];
 

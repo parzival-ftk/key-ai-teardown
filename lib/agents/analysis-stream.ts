@@ -6,6 +6,8 @@ import {
 } from "./user-research";
 import { createBusinessAgent, BUSINESS_AGENT_ID } from "./business";
 import { createInterviewerAgent, INTERVIEWER_AGENT_ID } from "./interviewer";
+import { createDevilsAdvocateAgent } from "./devils-advocate";
+import { createSynthesisAgent } from "./synthesis";
 import type { Agent } from "@/lib/types/agent";
 import type { ProductBrief } from "@/lib/types/brief";
 import type { LLMProvider } from "@/lib/llm/provider";
@@ -18,20 +20,26 @@ import { serializeAgentEvent, type AgentEvent } from "@/lib/types/events";
 
 export interface AnalysisStreamOptions {
   provider: LLMProvider;
-  /** 默认完整编队（竞品 / 用户 / 商业模式 / 访谈官）；可注入以测试 */
+  /** 默认完整编队；可注入以测试 */
   agents?: Agent[];
   /** 默认四个分析 Agent 全并行 */
   parallel?: string[];
   signal?: AbortSignal;
 }
 
-/** 默认编队：四个分析 Agent */
+/**
+ * 默认编队（顺序即展示顺序）：
+ *   四个分析 Agent 并行 → 反方质疑官 → PM 综合官
+ * 后两者串行，因此能读到前面所有结果（辩论需要）。
+ */
 export function createDefaultAgents(): Agent[] {
   return [
     createMarketAgent(),
     createUserResearchAgent(),
     createBusinessAgent(),
     createInterviewerAgent(),
+    createDevilsAdvocateAgent(),
+    createSynthesisAgent(),
   ];
 }
 

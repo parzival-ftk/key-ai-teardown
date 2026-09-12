@@ -8,14 +8,13 @@ import Link from "next/link";
  * Wave 1 仅「竞品分析师」上线，其输出填入「市场格局」，其余段落标注待补充。
  */
 const SECTIONS = [
-  { key: "summary", title: "执行摘要", owner: "PM 综合官" },
   { key: "market", title: "市场与竞争格局", owner: "竞品分析师" },
   { key: "users", title: "用户与场景", owner: "用户研究员" },
   { key: "interview", title: "用户访谈实录", owner: "用户访谈官" },
   { key: "business", title: "商业模式", owner: "商业模式分析师" },
-  { key: "gaps", title: "竞品优势与空白", owner: "PM 综合官" },
-  { key: "threats", title: "值得警惕的威胁", owner: "反方质疑官" },
-  { key: "recommendations", title: "建议", owner: "PM 综合官" },
+  { key: "critique", title: "反方质疑", owner: "反方质疑官" },
+  { key: "synthesis", title: "综合结论与建议", owner: "PM 综合官" },
+  { key: "prd", title: "PRD（用户故事 + 验收标准）", owner: "PRD 撰写官" },
 ] as const;
 
 interface ReportSection {
@@ -80,6 +79,8 @@ export function ReportView({ id }: { id: string }) {
     users: byAgent("user-research"),
     interview: byAgent("interviewer"),
     business: byAgent("business"),
+    critique: byAgent("devils-advocate"),
+    synthesis: byAgent("synthesis"),
   };
 
   return (

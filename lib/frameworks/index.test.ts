@@ -12,16 +12,18 @@ const brief = parseProductBrief({
 });
 
 describe("框架提示词库", () => {
-  it("导出七个框架，id 齐全", () => {
-    expect(FRAMEWORK_LIST).toHaveLength(7);
+  it("导出九个框架，id 齐全", () => {
+    expect(FRAMEWORK_LIST).toHaveLength(9);
     expect(Object.keys(FRAMEWORKS).sort()).toEqual([
       "aarrr",
       "business-canvas",
       "competitor-profiles",
+      "devils-advocate",
       "five-forces",
       "interviewer",
       "jtbd",
       "swot",
+      "synthesis",
     ]);
   });
 
