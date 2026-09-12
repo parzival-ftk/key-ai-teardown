@@ -4,8 +4,8 @@ import {
   readLLMEnv,
   createProviderFromEnv,
   PROVIDER_PRESETS,
+  LLMConfigError,
 } from "./config";
-import { LLMError } from "./llm/provider";
 
 const FULL_ENV = {
   LLM_BASE_URL: "https://api.deepseek.com/v1",
@@ -33,10 +33,8 @@ describe("LLM 配置读取", () => {
     expect(readLLMEnv({})).toBeNull();
   });
 
-  it("createProviderFromEnv 未配置时抛 LLMError", () => {
-    expect(() => createProviderFromEnv({})).toThrow(
-      LLMError,
-    );
+  it("createProviderFromEnv 未配置时抛 LLMConfigError", () => {
+    expect(() => createProviderFromEnv({})).toThrow(LLMConfigError);
   });
 
   it("createProviderFromEnv 配置完整时返回 provider", () => {

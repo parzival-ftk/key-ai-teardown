@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const parsed = safeParseProductBrief(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "参数校验失败：产品名称不能为空" },
+      { error: "输入校验失败", issues: parsed.error.issues },
       { status: 400 },
     );
   }

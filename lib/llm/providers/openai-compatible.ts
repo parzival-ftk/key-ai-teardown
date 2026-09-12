@@ -114,6 +114,25 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+
+    const extract = (rawLine: string): { done: boolean; delta?: string } => {
+      const line = rawLine.trim();
+      if (!line || !line.startsWith("data:")) return { done: false };
+      const payload = line.slice("data:".length).trim();
+      if (payload === "[DONE]") return { done: true };
+      try {
+        const chunk = JSON.parse(payload) as ChatCompletionChunk;
+        const delta = chunk?.choices?.[0]?.delta?.content;
+        return {
+          done: false,
+          delta:
+            typeof delta === "string" && delta.length > 0 ? delta : undefined,
+        };
+      } catch {
+        return { done: false };
+      }
+    };
+
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -123,18 +142,15 @@ export class OpenAICompatibleProvider implements LLMProvider {
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
         for (const rawLine of lines) {
-          const line = rawLine.trim();
-          if (!line || !line.startsWith("data:")) continue;
-          const payload = line.slice("data:".length).trim();
-          if (payload === "[DONE]") return;
-          try {
-            const chunk = JSON.parse(payload) as ChatCompletionChunk;
-            const delta = chunk?.choices?.[0]?.delta?.content;
-            if (typeof delta === "string" && delta.length > 0) yield delta;
-          } catch {
-            // 跳过非 JSON / 不完整行
-          }
+          const { done: finished, delta } = extract(rawLine);
+          if (finished) return;
+          if (delta) yield delta;
         }
+      }
+      // 流结束：flush 残留内容（上游最后一行可能不以换行结尾）
+      if (buffer) {
+        const { done: finished, delta } = extract(buffer);
+        if (!finished && delta) yield delta;
       }
     } finally {
       reader.releaseLock();

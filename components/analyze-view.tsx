@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { deserializeAgentEvent, type AgentEvent } from "@/lib/types/events";
+import type { ProductBrief } from "@/lib/types/brief";
 
 type AgentStatus = "running" | "done" | "error";
 
@@ -30,10 +31,15 @@ export function AnalyzeView({ id }: { id: string }) {
   const [agents, setAgents] = useState<AgentState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
+  // 按 id 记忆「已启动」：reactStrictMode 下 effect 会双跑，
+  // 用它避免重复发起 LLM 请求（每次都是真金白银的调用）。
+  // 注意：此处刻意不在 cleanup 里 abort —— 否则 StrictMode 会取消掉唯一那次真实请求。
+  const startedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
+    if (startedIdRef.current === id) return;
+    startedIdRef.current = id;
+
     let raw: string | null = null;
     try {
       raw = sessionStorage.getItem(`brief:${id}`);
@@ -45,9 +51,9 @@ export function AnalyzeView({ id }: { id: string }) {
       return;
     }
 
-    let brief: { name?: string };
+    let brief: ProductBrief;
     try {
-      brief = JSON.parse(raw);
+      brief = JSON.parse(raw) as ProductBrief;
     } catch {
       setError("输入数据已损坏，请返回首页重新提交。");
       return;
@@ -55,6 +61,17 @@ export function AnalyzeView({ id }: { id: string }) {
     setBriefName(brief.name ?? "");
 
     const current: AgentState[] = [];
+    const persistReport = () => {
+      try {
+        sessionStorage.setItem(
+          `report:${id}`,
+          JSON.stringify({ name: brief.name, sections: current }),
+        );
+      } catch {
+        // 忽略存储失败（报告页会提示重新提交）
+      }
+    };
+
     const applyEvent = (event: AgentEvent) => {
       switch (event.type) {
         case "agent:start":
@@ -95,6 +112,8 @@ export function AnalyzeView({ id }: { id: string }) {
           break;
         }
         case "done":
+          // 先落盘、再解锁「查看报告」，避免两者之间的竞态窗口
+          persistReport();
           setFinished(true);
           break;
       }
@@ -106,11 +125,10 @@ export function AnalyzeView({ id }: { id: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(brief),
-        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        if (!cancelled) setError(data.error ?? `请求失败：HTTP ${res.status}`);
+        setError(data.error ?? `请求失败：HTTP ${res.status}`);
         return;
       }
 
@@ -125,28 +143,12 @@ export function AnalyzeView({ id }: { id: string }) {
         buffer = lines.pop() ?? "";
         for (const line of lines) {
           const event = deserializeAgentEvent(line);
-          if (event && !cancelled) applyEvent(event);
+          if (event) applyEvent(event);
         }
       }
-
-      // 落盘报告供报告页读取
-      try {
-        sessionStorage.setItem(
-          `report:${id}`,
-          JSON.stringify({ name: brief.name, sections: current }),
-        );
-      } catch {
-        // 忽略存储失败
-      }
     })().catch((err) => {
-      if (!cancelled)
-        setError(err instanceof Error ? err.message : "未知错误");
+      setError(err instanceof Error ? err.message : "未知错误");
     });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
   }, [id]);
 
   return (

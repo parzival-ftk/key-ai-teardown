@@ -122,4 +122,24 @@ describe("OpenAICompatibleProvider", () => {
     }
     expect(out.join("")).toBe("你好！");
   });
+
+  it("chatStream flush 最后一行（上游不以换行结尾时该 delta 不丢）", async () => {
+    const chunks = [
+      'data: {"choices":[{"delta":{"content":"甲"}}]}\n\n',
+      // 最后一行没有结尾的 \n\n —— 应在流结束时被 flush
+      'data: {"choices":[{"delta":{"content":"乙"}}]}',
+    ];
+    const provider = new OpenAICompatibleProvider({
+      ...BASE,
+      fetchImpl: streamFetch(chunks),
+    });
+
+    const out: string[] = [];
+    for await (const delta of provider.chatStream([
+      { role: "user", content: "x" },
+    ])) {
+      out.push(delta);
+    }
+    expect(out.join("")).toBe("甲乙");
+  });
 });

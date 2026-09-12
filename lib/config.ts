@@ -5,6 +5,14 @@ import {
   type OpenAICompatibleConfig,
 } from "./llm/providers/openai-compatible";
 
+/** 配置缺失/非法 —— 与「上游调用失败」区分，供路由映射正确的 HTTP 状态码 */
+export class LLMConfigError extends LLMError {
+  constructor(message: string) {
+    super(message);
+    this.name = "LLMConfigError";
+  }
+}
+
 /** LLM 相关环境变量的 schema（全部来自 .env，服务端读取） */
 export const LLMEnvSchema = z.object({
   LLM_BASE_URL: z.string().min(1),
@@ -77,7 +85,7 @@ export function createProviderFromEnv(
   const config = readLLMEnv(env);
   if (!config) {
     const { missing } = getLLMConfigStatus(env);
-    throw new LLMError(
+    throw new LLMConfigError(
       `缺少 LLM 配置：${missing.join(", ")}。请复制 .env.example 为 .env 并填入你的 key。`,
     );
   }
