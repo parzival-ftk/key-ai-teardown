@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "stub:llm": "node e2e/stub-llm-server.mjs"
+    "stub:llm": "node e2e/stub-llm-server.mjs",
+    "eval": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs eval/cli.ts"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
