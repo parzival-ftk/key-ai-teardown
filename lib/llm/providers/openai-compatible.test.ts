@@ -142,4 +142,31 @@ describe("OpenAICompatibleProvider", () => {
     }
     expect(out.join("")).toBe("甲乙");
   });
+
+  it("上游返回 200 头后挂起 body 时，超时生效（不会永久挂起）", async () => {
+    const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
+      const signal = init?.signal as AbortSignal | undefined;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          // 永不 close；仅在超时触发 abort 时让流报错
+          signal?.addEventListener("abort", () => {
+            controller.error(new DOMException("Aborted", "AbortError"));
+          });
+        },
+      });
+      return new Response(body, { status: 200 });
+    });
+
+    const provider = new OpenAICompatibleProvider({
+      ...BASE,
+      timeoutMs: 60,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const started = Date.now();
+    await expect(
+      provider.chat([{ role: "user", content: "x" }]),
+    ).rejects.toBeInstanceOf(LLMError);
+    expect(Date.now() - started).toBeLessThan(3000);
+  });
 });

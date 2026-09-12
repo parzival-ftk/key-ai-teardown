@@ -11,7 +11,7 @@ export interface OpenAICompatibleConfig {
   baseURL: string;
   apiKey: string;
   model: string;
-  /** 请求超时（毫秒），默认 60s */
+  /** 单次调用总超时（毫秒），默认 60s；覆盖「请求 → 读体 → 流结束」全程 */
   timeoutMs?: number;
   /** 注入 fetch（测试 / 自定义运行时） */
   fetchImpl?: typeof fetch;
@@ -35,6 +35,9 @@ interface ChatCompletionChunk {
 /**
  * OpenAI 兼容 Provider —— 覆盖 OpenAI / DeepSeek / 通义 / 智谱
  * （四家均提供 OpenAI 兼容端点，差异仅 baseURL + model）。
+ *
+ * 超时纪律：超时计时覆盖整个调用生命周期（含响应体读取与流式读取），
+ * 不只在「拿到响应头」之前 —— 否则上游返回 200 头后挂起 body 会导致永久挂起。
  */
 export class OpenAICompatibleProvider implements LLMProvider {
   readonly id = "openai-compatible";
@@ -78,96 +81,34 @@ export class OpenAICompatibleProvider implements LLMProvider {
     return body;
   }
 
-  async chat(
-    messages: ChatMessage[],
-    options: ChatOptions = {},
-  ): Promise<ChatResult> {
-    const res = await this.request(
-      this.buildBody(messages, options, false),
-      options.signal,
-    );
-    const json = (await res.json()) as ChatCompletionChunk;
-    const content = json?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") {
-      throw new LLMError("响应缺少 choices[0].message.content");
+  /**
+   * 创建带总超时的 AbortSignal，返回 signal 与清理函数。
+   * 调用方必须在**整个调用结束**（含读完响应体/流）后才 cleanup。
+   */
+  private createTimeoutSignal(external?: AbortSignal): {
+    signal: AbortSignal;
+    cleanup: () => void;
+  } {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const onAbort = () => controller.abort();
+    if (external) {
+      if (external.aborted) controller.abort();
+      else external.addEventListener("abort", onAbort, { once: true });
     }
-    const usage = json.usage
-      ? {
-          promptTokens: json.usage.prompt_tokens ?? 0,
-          completionTokens: json.usage.completion_tokens ?? 0,
-          totalTokens: json.usage.total_tokens ?? 0,
-        }
-      : undefined;
-    return { content, model: json.model ?? this.model, usage };
-  }
-
-  async *chatStream(
-    messages: ChatMessage[],
-    options: ChatOptions = {},
-  ): AsyncIterable<string> {
-    const res = await this.request(
-      this.buildBody(messages, options, true),
-      options.signal,
-    );
-    if (!res.body) throw new LLMError("响应无 body，无法流式读取");
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    const extract = (rawLine: string): { done: boolean; delta?: string } => {
-      const line = rawLine.trim();
-      if (!line || !line.startsWith("data:")) return { done: false };
-      const payload = line.slice("data:".length).trim();
-      if (payload === "[DONE]") return { done: true };
-      try {
-        const chunk = JSON.parse(payload) as ChatCompletionChunk;
-        const delta = chunk?.choices?.[0]?.delta?.content;
-        return {
-          done: false,
-          delta:
-            typeof delta === "string" && delta.length > 0 ? delta : undefined,
-        };
-      } catch {
-        return { done: false };
-      }
+    return {
+      signal: controller.signal,
+      cleanup: () => {
+        clearTimeout(timer);
+        if (external) external.removeEventListener("abort", onAbort);
+      },
     };
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        // 按行切分，最后一段可能不完整 → 留在 buffer
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const rawLine of lines) {
-          const { done: finished, delta } = extract(rawLine);
-          if (finished) return;
-          if (delta) yield delta;
-        }
-      }
-      // 流结束：flush 残留内容（上游最后一行可能不以换行结尾）
-      if (buffer) {
-        const { done: finished, delta } = extract(buffer);
-        if (!finished && delta) yield delta;
-      }
-    } finally {
-      reader.releaseLock();
-    }
   }
 
   private async request(
     body: Record<string, unknown>,
-    signal?: AbortSignal,
+    signal: AbortSignal,
   ): Promise<Response> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    const onAbort = () => controller.abort();
-    if (signal) {
-      if (signal.aborted) controller.abort();
-      else signal.addEventListener("abort", onAbort, { once: true });
-    }
     try {
       const res = await this.fetchImpl(this.endpoint(), {
         method: "POST",
@@ -176,7 +117,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(body),
-        signal: controller.signal,
+        signal,
       });
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
@@ -191,14 +132,124 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (err instanceof Error && err.name === "AbortError") {
         throw new LLMError("LLM 请求超时或被取消", undefined, err);
       }
+      const cause =
+        err instanceof Error && err.cause instanceof Error
+          ? `（${err.cause.message}）`
+          : "";
       throw new LLMError(
-        `LLM 请求异常：${err instanceof Error ? err.message : String(err)}`,
+        `LLM 请求异常：${err instanceof Error ? err.message : String(err)}${cause}`,
+        undefined,
+        err,
+      );
+    }
+  }
+
+  async chat(
+    messages: ChatMessage[],
+    options: ChatOptions = {},
+  ): Promise<ChatResult> {
+    const { signal, cleanup } = this.createTimeoutSignal(options.signal);
+    try {
+      const res = await this.request(
+        this.buildBody(messages, options, false),
+        signal,
+      );
+      // 注意：读体也在超时保护范围内
+      const json = (await res.json()) as ChatCompletionChunk;
+      const content = json?.choices?.[0]?.message?.content;
+      if (typeof content !== "string") {
+        throw new LLMError("响应缺少 choices[0].message.content");
+      }
+      const usage = json.usage
+        ? {
+            promptTokens: json.usage.prompt_tokens ?? 0,
+            completionTokens: json.usage.completion_tokens ?? 0,
+            totalTokens: json.usage.total_tokens ?? 0,
+          }
+        : undefined;
+      return { content, model: json.model ?? this.model, usage };
+    } catch (err) {
+      if (err instanceof LLMError) throw err;
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new LLMError("LLM 请求超时或被取消", undefined, err);
+      }
+      throw new LLMError(
+        `LLM 响应解析失败：${err instanceof Error ? err.message : String(err)}`,
         undefined,
         err,
       );
     } finally {
-      clearTimeout(timer);
-      if (signal) signal.removeEventListener("abort", onAbort);
+      cleanup();
+    }
+  }
+
+  async *chatStream(
+    messages: ChatMessage[],
+    options: ChatOptions = {},
+  ): AsyncIterable<string> {
+    const { signal, cleanup } = this.createTimeoutSignal(options.signal);
+    try {
+      const res = await this.request(
+        this.buildBody(messages, options, true),
+        signal,
+      );
+      if (!res.body) throw new LLMError("响应无 body，无法流式读取");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const extract = (rawLine: string): { done: boolean; delta?: string } => {
+        const line = rawLine.trim();
+        if (!line || !line.startsWith("data:")) return { done: false };
+        const payload = line.slice("data:".length).trim();
+        if (payload === "[DONE]") return { done: true };
+        try {
+          const chunk = JSON.parse(payload) as ChatCompletionChunk;
+          const delta = chunk?.choices?.[0]?.delta?.content;
+          return {
+            done: false,
+            delta:
+              typeof delta === "string" && delta.length > 0 ? delta : undefined,
+          };
+        } catch {
+          return { done: false };
+        }
+      };
+
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const rawLine of lines) {
+            const { done: finished, delta } = extract(rawLine);
+            if (finished) return;
+            if (delta) yield delta;
+          }
+        }
+        // 流结束：flush 残留内容（上游最后一行可能不以换行结尾）
+        if (buffer) {
+          const { done: finished, delta } = extract(buffer);
+          if (!finished && delta) yield delta;
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    } catch (err) {
+      if (err instanceof LLMError) throw err;
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new LLMError("LLM 流式请求超时或被取消", undefined, err);
+      }
+      throw new LLMError(
+        `LLM 流式请求异常：${err instanceof Error ? err.message : String(err)}`,
+        undefined,
+        err,
+      );
+    } finally {
+      cleanup();
     }
   }
 }
