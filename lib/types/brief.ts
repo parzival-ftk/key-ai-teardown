@@ -32,6 +32,11 @@ export const ProductBriefSchema = z.object({
   sourceUrl: z.string().optional(),
   /** 截图 data URL（source = screenshot 时存在） */
   screenshotDataUrl: z.string().optional(),
+  /**
+   * 无头渲染得到的「UI 结构（DOM + computed styles）」描述（W8）。
+   * source = url 且本机有 Chrome/Edge 时由 /api/parse 产出；否则为空串（降级为纯文本）。
+   */
+  uiStructure: z.string().default(""),
   /** 额外上下文（可选） */
   extraContext: z.string().optional(),
 });

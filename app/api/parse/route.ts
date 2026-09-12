@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseUrl } from "@/lib/parsers/url";
 import { parsePdf } from "@/lib/parsers/pdf";
 import { parseImageDataUrl } from "@/lib/parsers/image";
+import { renderUiStructure, summarizeUiStructure } from "@/lib/parsers/dom";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,13 +52,30 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "缺少 url 字段" }, { status: 400 });
       }
       const result = await parseUrl(body.url);
-      if (!result.ok) {
+
+      // W8：尝试无头渲染取「DOM + computed styles」。拿不到浏览器 / 渲染失败一律降级，
+      // 不让它影响文本抓取的结果（单点失败不阻塞）。
+      let uiStructure: string | undefined;
+      try {
+        const structure = await renderUiStructure(body.url);
+        uiStructure = summarizeUiStructure(structure);
+      } catch {
+        uiStructure = undefined;
+      }
+
+      // 文本抓取失败、但无头渲染成功（典型：纯 JS 渲染页）→ 仍可用结构继续分析
+      if (!result.ok && !uiStructure) {
         return NextResponse.json(
           { error: result.error ?? "抓取失败" },
           { status: 422 },
         );
       }
-      return NextResponse.json(result);
+      return NextResponse.json({
+        ...result,
+        ok: true,
+        text: result.ok ? result.text : "",
+        uiStructure,
+      });
     }
 
     case "pdf": {

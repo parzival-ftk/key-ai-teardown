@@ -59,6 +59,8 @@ export function BriefForm() {
         error?: string;
         text?: string;
         dataUrl?: string;
+        /** W8：无头渲染得到的 UI 结构（本机无浏览器时缺省） */
+        uiStructure?: string;
       };
       if (!res.ok) throw new Error(data.error ?? `解析失败：HTTP ${res.status}`);
       return data;
@@ -72,6 +74,7 @@ export function BriefForm() {
         source: "url",
         rawText: data.text ?? "",
         sourceUrl: url.trim(),
+        uiStructure: data.uiStructure ?? "",
       };
     }
 
@@ -85,6 +88,7 @@ export function BriefForm() {
         source: "screenshot",
         rawText: "",
         screenshotDataUrl: data.dataUrl,
+        uiStructure: "",
       };
     }
 
@@ -93,10 +97,10 @@ export function BriefForm() {
       // 传完整 data URL（含 application/pdf 前缀），由服务端 extractBase64 处理
       const dataUrl = await readAsDataUrl(file);
       const data = await post({ type: "pdf", dataBase64: dataUrl });
-      return { ...base, source: "pdf", rawText: data.text ?? "" };
+      return { ...base, source: "pdf", rawText: data.text ?? "", uiStructure: "" };
     }
 
-    return { ...base, source: "text", rawText: "" };
+    return { ...base, source: "text", rawText: "", uiStructure: "" };
   }
 
   async function handleSubmit(e: React.FormEvent) {

@@ -10,7 +10,9 @@ import { runCompletionStream } from "./completion-stream";
  * （有意设计：图片内容无法机械核验，就不给 verified）。
  */
 function buildInputText(brief: ProductBrief): string {
-  return [brief.name, brief.description, brief.rawText].join("\n");
+  return [brief.name, brief.description, brief.rawText, brief.uiStructure].join(
+    "\n",
+  );
 }
 
 /**

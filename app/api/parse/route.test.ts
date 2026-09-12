@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "./route";
+import { renderUiStructure } from "@/lib/parsers/dom";
+
+// W8：url 分支会尝试无头渲染——测试里 mock 掉，避免真启浏览器 / 真联网。
+vi.mock("@/lib/parsers/dom", () => ({
+  renderUiStructure: vi.fn(),
+  summarizeUiStructure: vi.fn(() => "UI 结构摘要（mock）"),
+}));
+const mockedRender = vi.mocked(renderUiStructure);
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest("http://localhost/api/parse", {
@@ -66,6 +74,7 @@ describe("POST /api/parse（Wave 4.4）", () => {
   });
 
   it("url 非法 → 422（不发起网络请求）", async () => {
+    mockedRender.mockRejectedValue(new Error("headless unavailable"));
     const fetchImpl = vi.fn();
     vi.stubGlobal("fetch", fetchImpl);
     const res = await POST(makeRequest({ type: "url", url: "不是网址" }));
@@ -73,7 +82,8 @@ describe("POST /api/parse（Wave 4.4）", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("url 成功（stub fetch）→ 200 + 正文", async () => {
+  it("url 成功（stub fetch）+ headless 不可用 → 200 + 正文，无 uiStructure", async () => {
+    mockedRender.mockRejectedValue(new Error("no chrome"));
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -88,9 +98,64 @@ describe("POST /api/parse（Wave 4.4）", () => {
       makeRequest({ type: "url", url: "https://example.com" }),
     );
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { text: string; title: string };
+    const data = (await res.json()) as {
+      text: string;
+      title: string;
+      uiStructure?: string;
+    };
     expect(data.title).toBe("示例");
     expect(data.text).toContain("正文内容在此");
+    expect(data.uiStructure).toBeUndefined();
+  });
+
+  it("url 成功且 headless 可用 → 200 + 附带 uiStructure", async () => {
+    mockedRender.mockResolvedValue({
+      url: "https://example.com",
+      title: "示例",
+      totalElements: 1,
+      elements: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            "<html><head><title>示例</title></head><body><article>正文</article></body></html>",
+            { status: 200 },
+          ),
+      ),
+    );
+    const res = await POST(
+      makeRequest({ type: "url", url: "https://example.com" }),
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { uiStructure?: string };
+    expect(data.uiStructure).toBe("UI 结构摘要（mock）");
+  });
+
+  it("文本抓取失败但 headless 成功 → 仍 200（结构救活纯 JS 渲染页）", async () => {
+    mockedRender.mockResolvedValue({
+      url: "https://spa.example.com",
+      title: "SPA",
+      totalElements: 2,
+      elements: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<html><body></body></html>", { status: 200 })),
+    );
+    const res = await POST(
+      makeRequest({ type: "url", url: "https://spa.example.com" }),
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      ok: boolean;
+      text: string;
+      uiStructure?: string;
+    };
+    expect(data.ok).toBe(true);
+    expect(data.text).toBe("");
+    expect(data.uiStructure).toBe("UI 结构摘要（mock）");
   });
 
   it("pdf 合法 base64 → 200 + 提取文本", async () => {

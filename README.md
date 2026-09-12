@@ -23,7 +23,7 @@ Key 是一个面向 **AI 产品经理 / 产品经理** 岗位的**面试作品�
 - **对比矩阵**：一次输入 2-3 个产品，各自独立拆解后由「对比官」产出并列对比表；编排层 fan-out **并发受限**（成本 / 速率护栏）。
 - **界面参考代码**：视觉设计拆解 + HTML / Tailwind 代码起点（可复制、可轻量画布预览并改 class）。
 - **成套分析框架**（13 个）：波特五力、SWOT、竞品画像（威胁等级）、JTBD、商业模式画布（含单位经济学）、AARRR、模拟用户访谈、视觉设计拆解、界面代码还原、对比矩阵等。
-- **四类输入源**：文本、URL 抓取、截图（多模态识别）、PDF（文本抽取）。
+- **四类输入源**：文本、URL、截图（多模态识别）、PDF（文本抽取）。URL 走**双路**——正文抓取 + **无头渲染取 UI 结构（DOM + computed styles）**，纯 JS 渲染页也能拿到界面结构。
 - **交付物完整**：10 段式报告可导出 Markdown；PRD 用户故事一键转 **GitHub Issues**。
 - **质量门禁**：`npm run eval` 以 judge 按 rubric 打分，并与基线对比「改动前 / 后」的质量变化。
 - **断网可演示**：内置**样例报告**与**样例对比**，无 Key / 无网络也能完整走一遍。
@@ -40,7 +40,7 @@ Key 是一个面向 **AI 产品经理 / 产品经理** 岗位的**面试作品�
 | 编排 | 自研轻量**显式依赖图**（拓扑分层调度，非 LangGraph，可控可讲） |
 | 流式 | SSE（`ReadableStream` 事件流） |
 | PDF | unpdf |
-| 测试 | Vitest（单元 + 集成，250 用例）；质量门禁 eval 为独立 CLI |
+| 测试 | Vitest（单元 + 集成，264 用例）；质量门禁 eval 为独立 CLI |
 
 > 不引入 LangGraph / CrewAI：编排逻辑简单（依赖图 + 事件流），自研可控、易讲清设计决策。
 
@@ -69,6 +69,7 @@ npm run dev
 | `LLM_API_KEY` | 你的 API Key（必填） |
 | `LLM_MODEL` | 模型名，如 `deepseek-chat` |
 | `LLM_TIMEOUT_MS` | 单次调用总超时（毫秒，可选，默认 60000） |
+| `CHROME_PATH` | 可选：指定 Chrome/Edge 可执行文件路径（URL 无头渲染用；缺省自动探测系统安装，探测不到则降级为正文抓取） |
 
 ---
 
@@ -115,7 +116,7 @@ lib/
   compare/             对比矩阵：并发受限 fan-out + 对比编排 + SSE 封装
   frameworks/          分析框架提示词库（含 prd-templates/、对比官提示词）
   llm/                 Provider 抽象与 OpenAI 兼容实现
-  parsers/             URL / 图片 / PDF 解析
+  parsers/             URL / 图片 / PDF 解析 · dom（无头渲染取 UI 结构）
   export/              报告 Markdown 与 PRD→GitHub Issues
   report/              报告章节定义（单一事实来源）
   types/               共享契约（ProductBrief / CompareBrief / AgentEvent / Evidence）
@@ -129,13 +130,13 @@ docs/                  设计规格 · 演示脚本
 ## 质量门禁与测试
 
 ```bash
-npm run test        # Vitest：单元 + 集成（250 用例）
+npm run test        # Vitest：单元 + 集成（264 用例）
 npm run typecheck   # tsc --noEmit
 npm run build       # 生产构建
 npm run eval        # 质量门禁：judge 按 rubric 打分并与基线对比（需真实 LLM）
 ```
 
-- **单元 / 集成测试**：覆盖 Agent 输出解析、SSE 事件序列、依赖图调度、Provider 请求构造、解析器、导出转换、历史存储等；集成测试以 stub LLM server 驱动**完整编队**走真实 HTTP。
+- **单元 / 集成测试**：覆盖 Agent 输出解析、SSE 事件序列、依赖图调度、Provider 请求构造、解析器、导出转换、历史存储等；集成测试以 stub LLM server 驱动**完整编队**走真实 HTTP；**无头渲染**另有一条真实浏览器集成用例（本机无 Chrome/Edge 时自动跳过）。
 - **质量门禁（eval）**：固定的 golden briefs → 跑完整编队 → judge 按 4 个维度（框架覆盖度 / 证据可追溯性 / 洞察深度 / 可执行性）打分 → 与 `eval/baseline.json` 对比，输出「改动前 / 后」质量对比表。
   > 纪律：judge 是**代理指标、有噪音**，分数只用于同一 rubric 下的相对比较，不得当真理。
 
@@ -164,7 +165,7 @@ npm run demo         # 终端 B：校验 / · /sample · /compare · /compare/sa
 4. 部署。
 
 > 截图输入需所选模型支持多模态（Vision）；若使用纯文本模型，请改用文本 / URL / PDF 输入。
-> URL 输入当前为「正文抓取」；抓取渲染后 DOM + computed styles（headless）为路线图 W8，尚未实现。
+> **URL 无头渲染的部署边界**：headless 取 UI 结构依赖**本机已安装 Chrome/Edge**（可用 `CHROME_PATH` 指定）。Vercel 等 serverless 环境无浏览器，会**自动降级**为正文抓取，不影响其它功能；要在线启用需接入 `@sparticuz/chromium` 或外部渲染服务。
 
 ---
 
