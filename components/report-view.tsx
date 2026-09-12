@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { REPORT_SECTIONS } from "@/lib/report/sections";
 import { getReport } from "@/lib/history";
-import type { Evidence } from "@/lib/types/evidence";
+import { EVIDENCE_LABEL } from "@/lib/report/evidence-labels";
+import {
+  summarizeEvidence,
+  evidenceTotal,
+  traceablePercent,
+  type Evidence,
+  type EvidenceStats,
+} from "@/lib/types/evidence";
 import { EvidenceList } from "./evidence-list";
 
 /**
@@ -105,6 +112,9 @@ export function ReportView({
   const byAgent = (agentId: string) =>
     data.sections.find((s) => s.agentId === agentId);
   const generatedCount = data.sections.filter((s) => s.output).length;
+  const overallStats: EvidenceStats = summarizeEvidence(
+    data.sections.flatMap((s) => s.evidence ?? []),
+  );
   const busy = exporting !== null;
 
   async function handleExport(format: "markdown" | "issues") {
@@ -148,6 +158,23 @@ export function ReportView({
         <p className="text-sm text-gray-400">
           共 {REPORT_SECTIONS.length} 段 · 当前已生成 {generatedCount} 段
         </p>
+
+        {evidenceTotal(overallStats) > 0 && (
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tabular-nums">
+                {traceablePercent(overallStats)}%
+              </span>
+              <span className="text-sm text-gray-500">可追溯输入</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-400">
+              共 {evidenceTotal(overallStats)} 条结论 · {EVIDENCE_LABEL.verified}{" "}
+              {overallStats.verified} · {EVIDENCE_LABEL.inferred}{" "}
+              {overallStats.inferred} · {EVIDENCE_LABEL.missing}{" "}
+              {overallStats.missing}
+            </p>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

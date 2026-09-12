@@ -35,3 +35,18 @@ export function summarizeEvidence(evidence: Evidence[]): EvidenceStats {
   for (const e of evidence) stats[e.label] += 1;
   return stats;
 }
+
+/** 证据总数（W3 总览条用） */
+export function evidenceTotal(stats: EvidenceStats): number {
+  return stats.verified + stats.inferred + stats.missing;
+}
+
+/**
+ * 可追溯占比（0-100，四舍五入）。
+ * 「可追溯」= 已核实：其来源能被本次输入机械核验（见 W1 的不变量）。
+ * 无证据时返回 0，不做除零。
+ */
+export function traceablePercent(stats: EvidenceStats): number {
+  const total = evidenceTotal(stats);
+  return total === 0 ? 0 : Math.round((stats.verified / total) * 100);
+}

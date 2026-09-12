@@ -8,8 +8,11 @@ const EVIDENCE_CLASS: Record<EvidenceLabel, string> = {
 };
 
 /**
- * 证据标签列表（W2）—— 直播视图（analyze-view）与报告视图（report-view）共用，
- * 避免两处渲染各写一份而漂移。无证据时不渲染任何内容。
+ * 证据标签列表（W2 建立；W3 支持展开）。
+ * 直播视图（analyze-view）与报告视图（report-view）共用，避免两处渲染漂移。
+ *
+ * 交互（W3）：默认只显示 `[标签] 结论`；带来源的结论可点击展开，看到 `来源：…`。
+ * 用原生 <details> 实现——无需 JS 状态，SSR 与客户端行为一致。无证据时不渲染。
  */
 export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
   if (evidence.length === 0) return null;
@@ -22,10 +25,16 @@ export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
           >
             [{EVIDENCE_LABEL[item.label]}]
           </span>
-          <span className="text-gray-500">
-            {item.claim}
-            {item.source ? `（${item.source}）` : ""}
-          </span>
+          {item.source ? (
+            <details className="min-w-0">
+              <summary className="cursor-pointer text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                {item.claim}
+              </summary>
+              <p className="mt-1 text-gray-400">来源：{item.source}</p>
+            </details>
+          ) : (
+            <span className="text-gray-500">{item.claim}</span>
+          )}
         </li>
       ))}
     </ul>
