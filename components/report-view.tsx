@@ -217,17 +217,16 @@ export function ReportView({
               )}
             </h2>
             {content ? (
-              <>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                  {content}
-                </p>
-                <EvidenceList evidence={sectionData?.evidence ?? []} />
-              </>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                {content}
+              </p>
             ) : (
               <p className="text-sm text-gray-400">
                 待补充 —— 由「{section.owner}」负责。
               </p>
             )}
+            {/* 证据与正文独立渲染：正文为空但有证据时不应被连带丢弃（审查修复） */}
+            <EvidenceList evidence={sectionData?.evidence ?? []} />
           </section>
         );
       })}
