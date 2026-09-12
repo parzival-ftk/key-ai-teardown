@@ -2,6 +2,8 @@
 
 > 把任何产品拆成关键洞察。
 
+🌐 **在线体验**：https://key-ai-teardown.vercel.app ｜ **源码**：https://github.com/parzival-ftk/key-ai-teardown
+
 Key 是一个面向 **AI 产品经理 / 产品经理** 岗位的**面试作品集项目**：输入一个产品（或一个想法），它像一位产品经理那样完成一次结构化拆解 —— 竞品格局、用户与 JTBD、商业模式、反方质疑、综合结论，直到一份**可直接开发的中文 PRD**。
 
 它不是一个黑盒调 API 的套壳：**分析过程可解释**（多 Agent 流水线实时可见）、**结论带证据标签与置信度**（治理幻觉）、**每个环节都有独立测试**。
@@ -119,7 +121,7 @@ npm run build       # 生产构建
 
 ## 部署
 
-项目为标准 Next.js 应用，可一键部署到 Vercel：
+已部署于 https://key-ai-teardown.vercel.app （公开访问）。项目为标准 Next.js 应用，可一键部署到 Vercel：
 
 1. 推送到 GitHub；
 2. 在 Vercel 导入仓库；
