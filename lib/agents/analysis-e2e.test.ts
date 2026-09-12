@@ -249,6 +249,14 @@ describe("端到端：真实 HTTP + 全编队（唯一替身是 stub LLM server�
         : "",
     ).toContain("访谈证言");
 
+    // 反向断言：走的是软降级分支 —— 访谈官请求里**不含**研究员画像，且带降级提示
+    const interviewReq = captured.find((r) =>
+      r.system.includes(INTERVIEWER_MARK),
+    );
+    expect(interviewReq).toBeDefined();
+    expect(interviewReq!.user).not.toContain(RESEARCHER_REPLY);
+    expect(interviewReq!.user).toContain("未获得研究员画像");
+
     // 整体仍以 done 收尾，未崩溃
     expect(events[events.length - 1]).toEqual({ type: "done" });
   });

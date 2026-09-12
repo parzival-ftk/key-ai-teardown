@@ -79,8 +79,9 @@ describe("createAnalysisStream（SSE 集成）", () => {
       "prd",
     ]);
 
-    // W4 画像先行：访谈官移出并行组，其 start 必须晚于研究员（并行组）的 done，
-    // 否则它读不到画像。
+    // W4 画像先行：访谈官移出并行组，其 start 必须晚于研究员（并行组）的 done。
+    // 注意：本条**只证明调度时序**（访谈官确实排在研究员之后、能拿到 priorResults）；
+    // 画像真的被注入 prompt 由 analysis-e2e.test.ts 的真实 HTTP 断言覆盖，此处不做内容断言。
     const researchDone = events.findIndex(
       (e) => e.type === "agent:done" && e.agentId === "user-research",
     );
