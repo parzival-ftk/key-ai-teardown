@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { deserializeAgentEvent, type AgentEvent } from "@/lib/types/events";
 import type { ProductBrief } from "@/lib/types/brief";
 import { summarizeEvidence, type Evidence } from "@/lib/types/evidence";
 import { saveReport } from "@/lib/history";
 import { EvidenceList } from "./evidence-list";
+import {
+  useClientSnapshot,
+  useIsHydrated,
+} from "@/lib/hooks/client-snapshot";
 
 type AgentStatus = "running" | "done" | "error";
 
@@ -31,8 +35,53 @@ const STATUS_DOT: Record<AgentStatus, string> = {
   error: "bg-red-500",
 };
 
+/** 本次分析的输入（sessionStorage）读取状态 */
+type BriefState =
+  | { kind: "ready"; brief: ProductBrief }
+  | { kind: "missing" }
+  | { kind: "corrupt" };
+
+const MISSING_BRIEF: BriefState = { kind: "missing" };
+
+/**
+ * 按 id 构造输入读取器（sessionStorage），按 raw 缓存引用。
+ * 经 useClientSnapshot 读取：SSR/首帧用 MISSING_BRIEF，客户端挂载后切到真实值 ——
+ * 既避免 hydration mismatch，也避免「挂载时 setState」。
+ */
+function makeBriefReader(id: string): () => BriefState {
+  let cacheKey: string | null | undefined = undefined;
+  let cache: BriefState = MISSING_BRIEF;
+  return () => {
+    let raw: string | null = null;
+    try {
+      raw = sessionStorage.getItem(`brief:${id}`);
+    } catch {
+      raw = null;
+    }
+    if (raw !== cacheKey) {
+      cacheKey = raw;
+      if (raw === null) {
+        cache = MISSING_BRIEF;
+      } else {
+        try {
+          const parsed = JSON.parse(raw) as ProductBrief | null;
+          cache =
+            parsed && typeof parsed.name === "string"
+              ? { kind: "ready", brief: parsed }
+              : { kind: "corrupt" };
+        } catch {
+          cache = { kind: "corrupt" };
+        }
+      }
+    }
+    return cache;
+  };
+}
+
 export function AnalyzeView({ id }: { id: string }) {
-  const [briefName, setBriefName] = useState("");
+  const hydrated = useIsHydrated();
+  const readBrief = useMemo(() => makeBriefReader(id), [id]);
+  const briefState = useClientSnapshot(readBrief, MISSING_BRIEF);
   const [agents, setAgents] = useState<AgentState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
@@ -41,36 +90,30 @@ export function AnalyzeView({ id }: { id: string }) {
   // 注意：此处刻意不在 cleanup 里 abort —— 否则 StrictMode 会取消掉唯一那次真实请求。
   const startedIdRef = useRef<string | null>(null);
 
+  const brief = briefState.kind === "ready" ? briefState.brief : null;
+  const briefName = brief?.name ?? "";
+  // 输入缺失 / 损坏在渲染期判定（不再于 effect 里 setState）
+  const inputError =
+    hydrated && brief === null
+      ? briefState.kind === "corrupt"
+        ? "输入数据已损坏，请返回首页重新提交。"
+        : "找不到本次分析的输入，请返回首页重新提交。"
+      : null;
+  const errorText = inputError ?? error;
+
   useEffect(() => {
+    if (!brief) return;
     if (startedIdRef.current === id) return;
     startedIdRef.current = id;
 
-    let raw: string | null = null;
-    try {
-      raw = sessionStorage.getItem(`brief:${id}`);
-    } catch {
-      raw = null;
-    }
-    if (!raw) {
-      setError("找不到本次分析的输入，请返回首页重新提交。");
-      return;
-    }
-
-    let brief: ProductBrief;
-    try {
-      brief = JSON.parse(raw) as ProductBrief;
-    } catch {
-      setError("输入数据已损坏，请返回首页重新提交。");
-      return;
-    }
-    setBriefName(brief.name ?? "");
-
+    // 上面的 if (!brief) 已守卫；取别名以便在闭包内保持非空类型
+    const activeBrief = brief;
     const current: AgentState[] = [];
     const persistReport = () => {
       const evidenceStats = summarizeEvidence(
         current.flatMap((a) => a.evidence),
       );
-      const report = { name: brief.name, sections: current };
+      const report = { name: activeBrief.name, sections: current };
       try {
         sessionStorage.setItem(`report:${id}`, JSON.stringify(report));
       } catch {
@@ -80,7 +123,7 @@ export function AnalyzeView({ id }: { id: string }) {
         // 同时写入持久化历史（localStorage），供历史页跨会话回看
         saveReport(
           localStorage,
-          { id, name: brief.name || "未命名", evidenceStats },
+          { id, name: activeBrief.name || "未命名", evidenceStats },
           report,
         );
       } catch {
@@ -144,7 +187,7 @@ export function AnalyzeView({ id }: { id: string }) {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(brief),
+        body: JSON.stringify(activeBrief),
       });
       if (!res.ok || !res.body) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -169,7 +212,7 @@ export function AnalyzeView({ id }: { id: string }) {
     })().catch((err) => {
       setError(err instanceof Error ? err.message : "未知错误");
     });
-  }, [id]);
+  }, [id, brief]);
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8">
@@ -182,9 +225,9 @@ export function AnalyzeView({ id }: { id: string }) {
         </h1>
       </header>
 
-      {error && (
+      {errorText && (
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-          {error}
+          {errorText}
         </div>
       )}
 
@@ -219,7 +262,7 @@ export function AnalyzeView({ id }: { id: string }) {
         ))}
       </div>
 
-      {agents.length === 0 && !error && (
+      {agents.length === 0 && !errorText && (
         <p className="text-sm text-gray-400">正在连接分析服务…</p>
       )}
 

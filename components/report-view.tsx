@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { REPORT_SECTIONS } from "@/lib/report/sections";
-import { getReport } from "@/lib/history";
+import { reportStorageKey } from "@/lib/history";
 import { EVIDENCE_LABEL } from "@/lib/report/evidence-labels";
+import {
+  useClientSnapshot,
+  useIsHydrated,
+} from "@/lib/hooks/client-snapshot";
 import {
   summarizeEvidence,
   evidenceTotal,
@@ -38,6 +42,49 @@ export interface ReportData {
   sections: ReportSection[];
 }
 
+/** 存储读取结果：ready（拿到报告）或 missing（本地没有） */
+type StoredReport = { kind: "ready"; data: ReportData } | { kind: "missing" };
+
+const MISSING: StoredReport = { kind: "missing" };
+
+/**
+ * 按 id 构造「读一次报告」的快照读取器（localStorage 优先，回退 sessionStorage）。
+ * 按 raw 字符串缓存引用 —— useSyncExternalStore 要求 getSnapshot 返回稳定引用。
+ */
+function makeStoredReportReader(id: string): () => StoredReport {
+  let cacheKey: string | null | undefined = undefined;
+  let cache: StoredReport = MISSING;
+  return () => {
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(reportStorageKey(id));
+    } catch {
+      raw = null;
+    }
+    if (raw === null) {
+      try {
+        raw = sessionStorage.getItem(`report:${id}`);
+      } catch {
+        raw = null;
+      }
+    }
+    if (raw !== cacheKey) {
+      cacheKey = raw;
+      if (raw === null) {
+        cache = MISSING;
+      } else {
+        try {
+          const parsed = JSON.parse(raw) as ReportData | null;
+          cache = parsed ? { kind: "ready", data: parsed } : MISSING;
+        } catch {
+          cache = MISSING;
+        }
+      }
+    }
+    return cache;
+  };
+}
+
 /** 触发浏览器下载（前端拿到导出文本后落盘） */
 function download(filename: string, text: string, mime: string) {
   const blob = new Blob([text], { type: mime });
@@ -62,36 +109,24 @@ export function ReportView({
   /** 直接注入报告数据（样例回放等）；提供时跳过存储加载 */
   initialData?: ReportData;
 }) {
-  const [data, setData] = useState<ReportData | null>(initialData ?? null);
-  const [missing, setMissing] = useState(false);
+  const hydrated = useIsHydrated();
+  const readStored = useMemo(() => makeStoredReportReader(id), [id]);
+  const stored = useClientSnapshot(readStored, MISSING);
   const [exporting, setExporting] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (initialData) return;
-    let parsed: ReportData | null = null;
-    // 优先读持久化历史（localStorage），回退到当前会话（sessionStorage）
-    try {
-      parsed = getReport<ReportData>(localStorage, id);
-    } catch {
-      parsed = null;
-    }
-    if (!parsed) {
-      try {
-        const raw = sessionStorage.getItem(`report:${id}`);
-        if (raw) parsed = JSON.parse(raw) as ReportData;
-      } catch {
-        parsed = null;
-      }
-    }
-    if (!parsed) {
-      setMissing(true);
-      return;
-    }
-    setData(parsed);
-  }, [id, initialData]);
+  const data: ReportData | null =
+    initialData ?? (stored.kind === "ready" ? stored.data : null);
 
-  if (missing) {
+  if (!initialData && !hydrated) {
+    return (
+      <main className="mx-auto max-w-3xl p-8">
+        <p className="text-sm text-gray-400">加载中…</p>
+      </main>
+    );
+  }
+
+  if (!data) {
     return (
       <main className="mx-auto flex max-w-3xl flex-col gap-4 p-8">
         <Link href="/" className="text-sm text-gray-400 hover:underline">
@@ -100,14 +135,6 @@ export function ReportView({
         <p className="text-sm text-gray-500">
           找不到这份报告（可能已刷新或会话过期）。请返回首页重新分析。
         </p>
-      </main>
-    );
-  }
-
-  if (!data) {
-    return (
-      <main className="mx-auto max-w-3xl p-8">
-        <p className="text-sm text-gray-400">加载中…</p>
       </main>
     );
   }

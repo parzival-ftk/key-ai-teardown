@@ -1,33 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { listHistory, removeReport, type HistoryEntry } from "@/lib/history";
 import { formatEvidenceStats } from "@/lib/report/evidence-labels";
+import {
+  createStore,
+  useClientSnapshot,
+  useIsHydrated,
+} from "@/lib/hooks/client-snapshot";
 
-/** 历史记录列表（Wave 5.6；W2 加证据计数）—— 读取 localStorage 中的本地历史，可回看/删除。 */
+/**
+ * 历史记录列表（Wave 5.6；W2 加证据计数）—— 读取 localStorage 中的本地历史，可回看/删除。
+ *
+ * 存储读取经 useSyncExternalStore 订阅（而非「挂载时 setState」）：服务端渲染空列表、
+ * 客户端挂载后再切到真实值 —— 避免 hydration mismatch 与 react-hooks/set-state-in-effect。
+ */
+const EMPTY: HistoryEntry[] = [];
+
+const historyStore = createStore<HistoryEntry[]>(
+  (() => {
+    let cacheKey: string | null | undefined = undefined;
+    let cache: HistoryEntry[] = EMPTY;
+    return () => {
+      let raw: string | null = null;
+      try {
+        raw = localStorage.getItem("key:history");
+      } catch {
+        raw = null;
+      }
+      if (raw !== cacheKey) {
+        cacheKey = raw;
+        try {
+          cache = raw ? listHistory(localStorage) : EMPTY;
+        } catch {
+          cache = EMPTY;
+        }
+      }
+      return cache;
+    };
+  })(),
+);
+
 export function HistoryList() {
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    try {
-      setEntries(listHistory(localStorage));
-    } catch {
-      setEntries([]);
-    }
-    setLoaded(true);
-  }, []);
+  const hydrated = useIsHydrated();
+  const entries = useClientSnapshot(
+    historyStore.read,
+    EMPTY,
+    historyStore.subscribe,
+  );
 
   function handleRemove(id: string) {
     try {
-      setEntries(removeReport(localStorage, id));
+      removeReport(localStorage, id);
     } catch {
       // 删除失败不阻塞
     }
+    historyStore.notify();
   }
 
-  if (!loaded) {
+  if (!hydrated) {
     return <p className="text-sm text-gray-400">加载中…</p>;
   }
 

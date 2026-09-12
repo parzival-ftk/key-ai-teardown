@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { buildPreviewDoc } from "@/lib/report/preview-doc";
+import {
+  makeCachedValue,
+  useClientSnapshot,
+} from "@/lib/hooks/client-snapshot";
 
 /** 选中高亮色（导出时会连同选中属性一起剥掉，避免污染代码） */
 const SELECT_OUTLINE = "2px solid #2563eb";
@@ -19,19 +23,24 @@ const SELECT_ATTR = "data-key-selected";
  * 交互：点击元素 → 选中（描边 + 面板），可改 class 即时反映，可复制改后的 HTML。
  * 已知限制：项目 Tailwind 是按需子集，运行时**新造**的类名不会生效（骨架里出现过的类才有效）。
  */
+/**
+ * 读取页面上第一个样式表链接（仅客户端存在的 DOM 事实），只求值一次并缓存引用。
+ * 经 useClientSnapshot 读取：服务端用 "" 渲染、客户端挂载后切到真实值 —— 既避免
+ * hydration mismatch，也避免在 effect 里同步 setState（react-hooks/set-state-in-effect）。
+ */
+const readStylesheetHref = makeCachedValue(() =>
+  typeof document === "undefined"
+    ? ""
+    : (document.querySelector<HTMLLinkElement>('link[rel="stylesheet"]')?.href ??
+      ""),
+);
+
 export function CodePreview({ html }: { html: string }) {
-  const [cssHref, setCssHref] = useState("");
+  const cssHref = useClientSnapshot(readStylesheetHref, "");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [classDraft, setClassDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    const link = document.querySelector<HTMLLinkElement>(
-      'link[rel="stylesheet"]',
-    );
-    setCssHref(link?.href ?? "");
-  }, []);
 
   useEffect(() => {
     const frame = iframeRef.current;

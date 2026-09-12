@@ -15,16 +15,6 @@ const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
-    rules: {
-      // react-hooks v6 新增的编译期建议规则。本项目 5 处命中是同一模式：挂载时读取
-      // 浏览器端外部存储 / DOM（sessionStorage、localStorage、document 里的 stylesheet
-      // 链接）后再 setState。改为 useState 惰性初始化会造成服务端首帧与客户端不一致
-      // （hydration mismatch）——对 SSR 应用，正确解法是 useSyncExternalStore 级别的重构。
-      // 这里保留为 warn：信号可见、不阻塞 lint 门禁，重构单独跟踪。
-      "react-hooks/set-state-in-effect": "warn",
-    },
-  },
-  {
     // 全局忽略：构建产物 + 工具产物（.rivet 下是 agent 的备份/快照，非项目源码）
     ignores: [
       ".next/**",
