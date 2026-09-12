@@ -24,6 +24,24 @@ describe("parseStructuredOutput（证据标签解析）", () => {
     expect(out.evidence).toEqual([]);
   });
 
+  it("容忍只有 1 个反引号的围栏（真实模型实测会这么写）", () => {
+    const raw =
+      '正文\n`json\n{"confidence":60,"evidence":[{"claim":"A","label":"inferred"}]}\n```';
+    const out = parseStructuredOutput(raw);
+    expect(out.text).toBe("正文");
+    expect(out.confidence).toBe(60);
+    expect(out.evidence).toHaveLength(1);
+  });
+
+  it("无围栏时兜底提取末尾裸 JSON 对象", () => {
+    const raw =
+      '正文\n{"confidence":55,"evidence":[{"claim":"B","label":"missing"}]}';
+    const out = parseStructuredOutput(raw);
+    expect(out.text).toBe("正文");
+    expect(out.confidence).toBe(55);
+    expect(out.evidence[0].claim).toBe("B");
+  });
+
   it("非法 JSON 降级为纯文本（不抛错）", () => {
     const raw = "正文\n```json\n{坏掉的 json\n```";
     expect(() => parseStructuredOutput(raw)).not.toThrow();

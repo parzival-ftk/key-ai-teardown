@@ -5,6 +5,7 @@ import {
   createProviderFromEnv,
   PROVIDER_PRESETS,
   LLMConfigError,
+  sanitizeEnvValue,
 } from "./config";
 
 const FULL_ENV = {
@@ -51,5 +52,36 @@ describe("LLM 配置读取", () => {
       "zhipu",
     ]);
     expect(PROVIDER_PRESETS.deepseek.baseURL).toContain("deepseek.com");
+  });
+});
+
+describe("sanitizeEnvValue（配置容错）", () => {
+  it("剥掉成对包裹符与首尾空白", () => {
+    expect(sanitizeEnvValue("  sk-abc  ")).toBe("sk-abc");
+    expect(sanitizeEnvValue("<sk-abc>")).toBe("sk-abc");
+    expect(sanitizeEnvValue('"sk-abc"')).toBe("sk-abc");
+    expect(sanitizeEnvValue("'sk-abc'")).toBe("sk-abc");
+    expect(sanitizeEnvValue("`sk-abc`")).toBe("sk-abc");
+    expect(sanitizeEnvValue(undefined)).toBeUndefined();
+  });
+
+  it("不成对或非包裹符不加改动", () => {
+    expect(sanitizeEnvValue("<sk-abc")).toBe("<sk-abc");
+    expect(sanitizeEnvValue("sk-abc>")).toBe("sk-abc>");
+    expect(sanitizeEnvValue("https://api.deepseek.com/v1")).toBe(
+      "https://api.deepseek.com/v1",
+    );
+  });
+
+  it("readLLMEnv 能剥离被尖括号包裹的 key（真实踩过的坑：<sk-...> 导致 401）", () => {
+    const cfg = readLLMEnv({
+      LLM_BASE_URL: "<https://api.deepseek.com/v1>",
+      LLM_API_KEY: "<sk-0d5d4f0991a348049ef8da38043e4c11>",
+      LLM_MODEL: " deepseek-chat ",
+    });
+
+    expect(cfg?.LLM_API_KEY).toBe("sk-0d5d4f0991a348049ef8da38043e4c11");
+    expect(cfg?.LLM_BASE_URL).toBe("https://api.deepseek.com/v1");
+    expect(cfg?.LLM_MODEL).toBe("deepseek-chat");
   });
 });

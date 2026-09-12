@@ -1,7 +1,7 @@
 import type { Agent } from "@/lib/types/agent";
 import type { ChatMessage } from "@/lib/llm/provider";
 import type { FrameworkTemplate } from "@/lib/frameworks";
-import { parseStructuredOutput } from "./structured-output";
+import { parseStructuredOutput, findMetadataStart } from "./structured-output";
 
 /**
  * 框架驱动的 Agent 工厂 —— 把「分析框架」与「执行逻辑」解耦（spec §6/§7）。
@@ -16,8 +16,8 @@ export interface FrameworkAgentConfig {
   frameworks: FrameworkTemplate[];
 }
 
-/** 结构化元数据块的起始围栏 —— 内容是给机器读的，不应流式展示给用户 */
-const METADATA_FENCE = "```json";
+/** 流式阶段为「元数据起点」保留的安全尾长（覆盖最长的可能前缀，避免吐半截） */
+const SAFE_TAIL = 16;
 
 export function createFrameworkAgent({
   id,
@@ -65,21 +65,20 @@ export function createFrameworkAgent({
         raw += delta;
         if (metadataStarted) continue;
 
-        const fenceIndex = raw.indexOf(METADATA_FENCE);
-        if (fenceIndex !== -1) {
-          // 进入元数据区：只发出围栏之前的正文，之后不再 emit token
+        // 元数据区起点（围栏 1-3 个反引号，或裸 JSON 的 { "confidence"/"evidence"）
+        const start = findMetadataStart(raw);
+        if (start !== -1) {
           metadataStarted = true;
-          flushVisible(fenceIndex);
+          flushVisible(start);
         } else {
-          // 保留尾部（可能是围栏前缀，避免把 ``` 提前吐给用户）
-          flushVisible(Math.max(0, raw.length - (METADATA_FENCE.length - 1)));
+          flushVisible(Math.max(0, raw.length - SAFE_TAIL));
         }
       }
 
       // 流结束且从未进入元数据区 → flush 剩余可见文本
       if (!metadataStarted) flushVisible(raw.length);
 
-      // 剥离结尾结构化元数据（置信度 + 证据标签）；解析失败自动降级为纯文本
+      // 剥离结构化元数据（置信度 + 证据标签）；解析失败自动降级为纯文本
       const { text, confidence, evidence } = parseStructuredOutput(raw);
 
       return {

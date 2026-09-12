@@ -33,35 +33,77 @@ export interface LLMConfigStatus {
 
 const REQUIRED_KEYS = ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"] as const;
 
+/** 成对包裹符（粘贴配置时常见） */
+const WRAPPING_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ['"', '"'],
+  ["'", "'"],
+  ["`", "`"],
+  ["<", ">"],
+];
+
+/**
+ * 清洗环境变量值：去首尾空白，并剥掉成对的包裹符。
+ *
+ * 现实依据：从文档/聊天里复制 key 时常带上 <sk-...> 或 "sk-..."，
+ * 直接送给上游会导致 401（key 里多了不可见包裹符）。此处统一剥离。
+ * 例：`<sk-abc>` → `sk-abc`，`"https://x/v1"` → `https://x/v1`。
+ */
+export function sanitizeEnvValue(
+  raw: string | undefined,
+): string | undefined {
+  if (raw === undefined) return undefined;
+  let value = raw.trim();
+  for (const [open, close] of WRAPPING_PAIRS) {
+    if (value.length >= 2 && value.startsWith(open) && value.endsWith(close)) {
+      value = value.slice(1, -1).trim();
+    }
+  }
+  return value;
+}
+
+/** 对 LLM_* 全部取值做清洗，返回可直接喂给 schema 的对象 */
+function normalizedLLMEnv(
+  env: Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  return {
+    LLM_BASE_URL: sanitizeEnvValue(env.LLM_BASE_URL),
+    LLM_API_KEY: sanitizeEnvValue(env.LLM_API_KEY),
+    LLM_MODEL: sanitizeEnvValue(env.LLM_MODEL),
+    LLM_TIMEOUT_MS: sanitizeEnvValue(env.LLM_TIMEOUT_MS),
+  };
+}
+
 /**
  * 已知厂商预设（spec §12 开放问题：默认厂商在 Wave 0 决定）。
  * 均为 OpenAI 兼容端点，切换厂商只需改 baseURL + model。
  */
-export const PROVIDER_PRESETS: Record<string, { baseURL: string; model: string }> =
-  {
-    deepseek: {
-      baseURL: "https://api.deepseek.com/v1",
-      model: "deepseek-chat",
-    },
-    openai: {
-      baseURL: "https://api.openai.com/v1",
-      model: "gpt-4o-mini",
-    },
-    qwen: {
-      baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      model: "qwen-plus",
-    },
-    zhipu: {
-      baseURL: "https://open.bigmodel.cn/api/paas/v4",
-      model: "glm-4-flash",
-    },
-  };
+export const PROVIDER_PRESETS: Record<
+  string,
+  { baseURL: string; model: string }
+> = {
+  deepseek: {
+    baseURL: "https://api.deepseek.com/v1",
+    model: "deepseek-chat",
+  },
+  openai: {
+    baseURL: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+  },
+  qwen: {
+    baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-plus",
+  },
+  zhipu: {
+    baseURL: "https://open.bigmodel.cn/api/paas/v4",
+    model: "glm-4-flash",
+  },
+};
 
-/** 读取并校验环境变量；未配置完整时返回 null（不抛错） */
+/** 读取并校验环境变量（先清洗）；未配置完整时返回 null（不抛错） */
 export function readLLMEnv(
   env: Record<string, string | undefined> = process.env,
 ): LLMEnv | null {
-  const parsed = LLMEnvSchema.safeParse(env);
+  const parsed = LLMEnvSchema.safeParse(normalizedLLMEnv(env));
   return parsed.success ? parsed.data : null;
 }
 
@@ -69,16 +111,17 @@ export function readLLMEnv(
 export function getLLMConfigStatus(
   env: Record<string, string | undefined> = process.env,
 ): LLMConfigStatus {
-  const missing = REQUIRED_KEYS.filter((key) => !env[key]);
+  const normalized = normalizedLLMEnv(env);
+  const missing = REQUIRED_KEYS.filter((key) => !normalized[key]);
   return {
     configured: missing.length === 0,
     missing: [...missing],
-    baseURL: env.LLM_BASE_URL,
-    model: env.LLM_MODEL,
+    baseURL: normalized.LLM_BASE_URL,
+    model: normalized.LLM_MODEL,
   };
 }
 
-/** 从环境变量构造 Provider；未配置完整则抛 LLMError */
+/** 从环境变量构造 Provider；未配置完整则抛 LLMConfigError */
 export function createProviderFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): LLMProvider {
