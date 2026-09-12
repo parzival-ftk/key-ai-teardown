@@ -30,4 +30,10 @@ export const REPORT_SECTIONS: ReportSectionSpec[] = [
     agentId: "prd",
     owner: "PRD 撰写官",
   },
+  {
+    key: "ui-code",
+    title: "界面代码（参考起点，请自行设计）",
+    agentId: "ui-code",
+    owner: "界面代码生成师",
+  },
 ];

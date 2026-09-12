@@ -60,7 +60,7 @@ describe("createAnalysisStream（SSE 集成）", () => {
     });
   });
 
-  it("默认编队：4 个分析 Agent 并行，访谈官与后续 Agent 串行，最后以 done 收尾", async () => {
+  it("默认编队：5 个分析 Agent 并行，访谈官与后续 Agent 串行，最后以 done 收尾", async () => {
     const stream = createAnalysisStream(parseProductBrief({ name: "X" }), {
       provider: stubProvider(["x"]),
     });
@@ -74,6 +74,7 @@ describe("createAnalysisStream（SSE 集成）", () => {
       "user-research",
       "business",
       "visual-design",
+      "ui-code",
       "interviewer",
       "devils-advocate",
       "synthesis",

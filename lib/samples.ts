@@ -251,6 +251,55 @@ MVP：场景模板库 + 新手引导 + 团队邀请。明确不做：高级权�
 - [体验] 新手引导与空状态已就绪 —— 待办
 - [稳定性] 错误态与降级路径已覆盖 —— 已满足（流式失败不阻塞）`,
   },
+  {
+    agentId: "ui-code",
+    name: "界面代码生成师",
+    status: "done",
+    confidence: 62,
+    evidence: [
+      { claim: "结构还原基于截图中的区块划分推断", label: "inferred" },
+      {
+        claim: "配色使用通用色阶，未取用品牌色",
+        label: "verified",
+        source: "notion.so 界面截图",
+      },
+      { claim: "精确间距与字号需按设计规范校正", label: "missing" },
+    ],
+    output: `按「侧栏 + 主内容 + 顶栏」三段结构还原，交互元素用 Tailwind 通用色阶表达；
+品牌色与图标以中性占位替代 —— 这是**参考起点**，请据此自行设计。
+
+\`\`\`html
+<div class="flex h-screen bg-white text-slate-800">
+  <aside class="w-60 shrink-0 border-r border-slate-200 p-4">
+    <div class="mb-4 flex items-center gap-2">
+      <span class="h-6 w-6 rounded bg-slate-300"></span>
+      <span class="text-sm font-semibold">Workspace</span>
+    </div>
+    <nav class="flex flex-col gap-1 text-sm text-slate-600">
+      <a class="rounded px-2 py-1 hover:bg-slate-100">Getting Started</a>
+      <a class="rounded px-2 py-1 hover:bg-slate-100">Projects</a>
+      <a class="rounded px-2 py-1 hover:bg-slate-100">Templates</a>
+    </nav>
+  </aside>
+  <main class="flex min-w-0 flex-1 flex-col">
+    <header class="flex items-center justify-between border-b border-slate-200 px-6 py-3">
+      <h1 class="text-lg font-semibold">Projects</h1>
+      <button class="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white">New</button>
+    </header>
+    <section class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+      <article class="rounded-lg border border-slate-200 p-4">
+        <h2 class="text-sm font-medium">Project A</h2>
+        <p class="mt-1 text-xs text-slate-500">Lorem ipsum dolor sit amet.</p>
+      </article>
+      <article class="rounded-lg border border-slate-200 p-4">
+        <h2 class="text-sm font-medium">Project B</h2>
+        <p class="mt-1 text-xs text-slate-500">Lorem ipsum dolor sit amet.</p>
+      </article>
+    </section>
+  </main>
+</div>
+\`\`\``,
+  },
 ];
 
 export const SAMPLE_REPORT: SampleReport = {

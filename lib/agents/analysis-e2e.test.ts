@@ -12,7 +12,7 @@ import { parseProductBrief } from "@/lib/types/brief";
  * 走的是与 /api/analyze 相同的真实路径：
  *   真实 OpenAICompatibleProvider（真实 fetch + SSE 解析）
  *   → 真实全编队（7 个 Agent，真实框架提示词）
- *   → 真实编排（并行 4 + 串行 4：访谈官在 W4 移入串行组复用研究员画像）
+ *   → 真实编排（并行 5 + 串行 4：访谈官在 W4 移入串行组复用研究员画像）
  *   → 真实 SSE 序列化
  * 中间层一律不 mock；只有上游 LLM 是一个本地 HTTP stub。
  *
@@ -168,7 +168,7 @@ describe("端到端：真实 HTTP + 全编队（唯一替身是 stub LLM server�
     state.failMark = null;
   });
 
-  it("全编队经真实 HTTP 走完：8 个 Agent 逐个产出、SSE 格式正确、以 done 收尾、无 error", async () => {
+  it("全编队经真实 HTTP 走完：9 个 Agent 逐个产出、SSE 格式正确、以 done 收尾、无 error", async () => {
     const stream = createAnalysisStream(brief, {
       provider: makeProvider(baseURL),
     });
@@ -178,7 +178,7 @@ describe("端到端：真实 HTTP + 全编队（唯一替身是 stub LLM server�
     expect(raw).toContain("data: ");
     expect(raw.trimEnd().endsWith('data: {"type":"done"}')).toBe(true);
 
-    // 8 个 Agent 全部启动
+    // 9 个 Agent 全部启动
     const startedIds = events
       .filter((e) => e.type === "agent:start")
       .map((e) => (e.type === "agent:start" ? e.agentId : ""));
@@ -187,6 +187,7 @@ describe("端到端：真实 HTTP + 全编队（唯一替身是 stub LLM server�
       "user-research",
       "business",
       "visual-design",
+      "ui-code",
       "interviewer",
       "devils-advocate",
       "synthesis",
@@ -195,7 +196,7 @@ describe("端到端：真实 HTTP + 全编队（唯一替身是 stub LLM server�
 
     // 每个 Agent 都有 done；差异化 stub 下输出不再千篇一律（W4 修 stub 盲区）
     const doneEvents = events.filter((e) => e.type === "agent:done");
-    expect(doneEvents).toHaveLength(8);
+    expect(doneEvents).toHaveLength(9);
     const outputs = doneEvents.map((e) =>
       e.type === "agent:done" ? e.output : "",
     );
