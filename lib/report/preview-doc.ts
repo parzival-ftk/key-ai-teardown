@@ -10,7 +10,19 @@
  *  - 刻意不注入任何 <script>：只读预览不执行 LLM 产出的代码（与 iframe sandbox="" 配套）。
  */
 
+/**
+ * 剥掉 HTML 里的 <script>（不信任输入的兜底）。
+ * 预览容器用 sandbox="allow-same-origin"（元素选中需要同源访问 DOM），此时若 srcdoc 里带
+ * LLM 产出的脚本，脚本将能触达父页面 —— 故必须净化。框架本就要求「不带 JS 逻辑」。
+ */
+export function stripScripts(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<script\b[^>]*\/?>/gi, "");
+}
+
 export function buildPreviewDoc(bodyHtml: string, cssHref: string): string {
+  const safeBody = stripScripts(bodyHtml);
   const link = cssHref ? `<link rel="stylesheet" href="${cssHref}">` : "";
   return [
     "<!doctype html>",
@@ -21,7 +33,7 @@ export function buildPreviewDoc(bodyHtml: string, cssHref: string): string {
     link,
     "<style>html,body{margin:0;padding:0}</style>",
     "</head>",
-    `<body>${bodyHtml}</body>`,
+    `<body>${safeBody}</body>`,
     "</html>",
   ].join("");
 }
