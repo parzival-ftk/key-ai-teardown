@@ -1,6 +1,7 @@
 import type { Agent } from "@/lib/types/agent";
 import type { ChatMessage } from "@/lib/llm/provider";
 import type { FrameworkTemplate } from "@/lib/frameworks";
+import { parseStructuredOutput } from "./structured-output";
 
 /**
  * 框架驱动的 Agent 工厂 —— 把「分析框架」与「执行逻辑」解耦（spec §6/§7）。
@@ -44,15 +45,24 @@ export function createFrameworkAgent({
         },
       ];
 
-      let output = "";
+      let raw = "";
       for await (const delta of ctx.provider.chatStream(messages, {
         signal: ctx.signal,
       })) {
-        output += delta;
+        raw += delta;
         ctx.emit({ type: "agent:token", agentId: id, delta });
       }
 
-      return { agentId: id, output, evidence: [], failed: false };
+      // 剥离结尾结构化元数据（置信度 + 证据标签）；解析失败自动降级为纯文本
+      const { text, confidence, evidence } = parseStructuredOutput(raw);
+
+      return {
+        agentId: id,
+        output: text,
+        confidence,
+        evidence,
+        failed: false,
+      };
     },
   };
 }

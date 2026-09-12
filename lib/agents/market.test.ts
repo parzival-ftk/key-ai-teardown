@@ -51,6 +51,25 @@ describe("三个分析 Agent", () => {
       { type: "agent:token", agentId: MARKET_AGENT_ID, delta: "品" },
     ]);
   });
+
+  it("解析结尾 JSON 块，填充 confidence/evidence 并从正文剥离（E2）", async () => {
+    const raw = [
+      "结论正文",
+      "```json",
+      '{"confidence":70,"evidence":[{"claim":"C","label":"inferred"}]}',
+      "```",
+    ].join("\n");
+    const agent = createMarketAgent();
+    const result = await agent.run(parseProductBrief({ name: "X" }), {
+      provider: stubProvider([raw]),
+      emit: () => {},
+    });
+
+    expect(result.output).toBe("结论正文");
+    expect(result.confidence).toBe(70);
+    expect(result.evidence).toHaveLength(1);
+    expect(result.evidence[0].label).toBe("inferred");
+  });
 });
 
 describe("createFrameworkAgent 工厂", () => {

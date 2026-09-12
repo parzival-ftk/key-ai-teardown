@@ -36,4 +36,9 @@ export function renderBrief(brief: ProductBrief): string {
 export const OUTPUT_RULES = `规则：
 - 使用中文、Markdown 输出，结构清晰。
 - 不要编造具体的市场规模、营收、用户数等数据；无法确知处明确标注「（推测）」。
-- 只做分析，不写代码，不输出与本次分析无关的内容。`;
+- 只做分析，不写代码，不输出与本次分析无关的内容。
+- **回答的最末尾**必须附加一个 JSON 代码块（全文只有这一个），格式为：
+\`\`\`json
+{"confidence": 0, "evidence": [{"claim": "关键结论简述", "label": "inferred", "source": ""}]}
+\`\`\`
+其中 confidence 替换为 0-100 的整数（你对自己整体结论的置信度）；evidence 列出 2-4 条关键结论，label 只能取 verified / inferred / missing 之一：有可查来源才用 verified 并在 source 写明来源，否则用 inferred；若关键信息缺失无法判断则用 missing。**绝不虚构 source**。`;

@@ -2,26 +2,14 @@ import { z } from "zod";
 import type { ProductBrief } from "./brief";
 import type { AgentEvent } from "./events";
 import type { LLMProvider } from "../llm/provider";
+import { EvidenceSchema } from "./evidence";
 
-/**
- * 证据标签（E2 · 差异化卖点）。
- * 每条结论标注其证据等级，用于治理 LLM 幻觉：
- * - verified：有明确来源支撑
- * - inferred：由推理得出，无直接来源
- * - missing：关键信息缺失，无法判断
- */
-export const EvidenceLabelSchema = z.enum(["verified", "inferred", "missing"]);
-export type EvidenceLabel = z.infer<typeof EvidenceLabelSchema>;
-
-export const EvidenceSchema = z.object({
-  /** 结论/声称内容 */
-  claim: z.string(),
-  /** 证据等级 */
-  label: EvidenceLabelSchema,
-  /** 来源（URL / 文档 / 数据点）；label = verified 时应有来源 */
-  source: z.string().optional(),
-});
-export type Evidence = z.infer<typeof EvidenceSchema>;
+// 证据标签类型统一由 ./evidence 定义，此处 re-export 以保持既有引用可用
+export {
+  EvidenceLabelSchema,
+  EvidenceSchema,
+} from "./evidence";
+export type { EvidenceLabel, Evidence } from "./evidence";
 
 /**
  * Agent 输出契约（spec §6：每个 Agent 有明确的 I/O 契约）。

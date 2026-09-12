@@ -41,6 +41,7 @@ export async function runAnalysis(
         agentId: agent.id,
         output: result.output,
         confidence: result.confidence,
+        evidence: result.evidence.length > 0 ? result.evidence : undefined,
       });
       return result;
     } catch (err) {

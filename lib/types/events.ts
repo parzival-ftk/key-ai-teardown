@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EvidenceSchema } from "./evidence";
 
 /**
  * SSE 事件协议 —— 产品的心脏（设计规格 §5）。
@@ -28,6 +29,8 @@ export const AgentDoneEventSchema = z.object({
   output: z.string(),
   /** 置信度 0-100（PM 综合官产出；MVP 阶段可缺省） */
   confidence: z.number().min(0).max(100).optional(),
+  /** 证据标签（E2） */
+  evidence: z.array(EvidenceSchema).optional(),
 });
 
 export const ReportSectionEventSchema = z.object({
