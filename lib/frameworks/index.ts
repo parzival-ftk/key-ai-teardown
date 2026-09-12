@@ -3,9 +3,19 @@ import { swot } from "./swot";
 import { jtbd } from "./jtbd";
 import { businessCanvas } from "./business-canvas";
 import { aarrr } from "./aarrr";
+import { interviewer } from "./interviewer";
+import { competitorProfiles } from "./competitor-profiles";
 import type { FrameworkTemplate } from "./types";
 
-export { fiveForces, swot, jtbd, businessCanvas, aarrr };
+export {
+  fiveForces,
+  swot,
+  jtbd,
+  businessCanvas,
+  aarrr,
+  interviewer,
+  competitorProfiles,
+};
 export { renderBrief, OUTPUT_RULES } from "./types";
 export type { FrameworkTemplate } from "./types";
 
@@ -16,6 +26,8 @@ export const FRAMEWORKS: Record<string, FrameworkTemplate> = {
   [jtbd.id]: jtbd,
   [businessCanvas.id]: businessCanvas,
   [aarrr.id]: aarrr,
+  [interviewer.id]: interviewer,
+  [competitorProfiles.id]: competitorProfiles,
 };
 
 export const FRAMEWORK_LIST: FrameworkTemplate[] = Object.values(FRAMEWORKS);

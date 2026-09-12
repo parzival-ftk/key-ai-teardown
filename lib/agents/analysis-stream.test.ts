@@ -70,7 +70,12 @@ describe("createAnalysisStream（SSE 集成）", () => {
     const starts = events
       .filter((e) => e.type === "agent:start")
       .map((e) => (e.type === "agent:start" ? e.agentId : ""));
-    expect(starts).toEqual(["market", "user-research", "business"]);
+    expect(starts).toEqual([
+      "market",
+      "user-research",
+      "business",
+      "interviewer",
+    ]);
     expect(events[events.length - 1]).toEqual({ type: "done" });
   });
 

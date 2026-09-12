@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { FRAMEWORKS, FRAMEWORK_LIST, renderBrief } from "./index";
 import { jtbd } from "./jtbd";
 import { businessCanvas } from "./business-canvas";
+import { interviewer } from "./interviewer";
+import { competitorProfiles } from "./competitor-profiles";
 import { parseProductBrief } from "@/lib/types/brief";
 
 const brief = parseProductBrief({
@@ -10,12 +12,14 @@ const brief = parseProductBrief({
 });
 
 describe("框架提示词库", () => {
-  it("导出五个框架，id 齐全", () => {
-    expect(FRAMEWORK_LIST).toHaveLength(5);
+  it("导出七个框架，id 齐全", () => {
+    expect(FRAMEWORK_LIST).toHaveLength(7);
     expect(Object.keys(FRAMEWORKS).sort()).toEqual([
       "aarrr",
       "business-canvas",
+      "competitor-profiles",
       "five-forces",
+      "interviewer",
       "jtbd",
       "swot",
     ]);
@@ -39,6 +43,12 @@ describe("框架提示词库", () => {
     expect(renderBrief(parseProductBrief({ name: "X" }))).toBe("产品名称：X");
   });
 
+  it("renderBrief 在共创模式下带「尚未落地」前缀", () => {
+    const text = renderBrief(parseProductBrief({ name: "X", mode: "co-create" }));
+    expect(text).toContain("尚未落地");
+    expect(text).toContain("产品名称：X");
+  });
+
   it("JTBD 框架明确要求三层 job", () => {
     expect(jtbd.systemPrompt).toContain("functional");
     expect(jtbd.systemPrompt).toContain("emotional");
@@ -47,5 +57,16 @@ describe("框架提示词库", () => {
 
   it("商业模式画布含单位经济学（E6）", () => {
     expect(businessCanvas.systemPrompt).toContain("单位经济学");
+  });
+
+  it("访谈官框架要求摩擦点与情绪潜台词（E4）", () => {
+    expect(interviewer.systemPrompt).toContain("摩擦点");
+    expect(interviewer.systemPrompt).toContain("情绪潜台词");
+    expect(interviewer.systemPrompt).toContain("模拟");
+  });
+
+  it("竞品画像框架要求威胁等级（E1）", () => {
+    expect(competitorProfiles.systemPrompt).toContain("威胁等级");
+    expect(competitorProfiles.systemPrompt).toContain("高");
   });
 });

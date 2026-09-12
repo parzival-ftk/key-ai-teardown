@@ -11,6 +11,7 @@ const SECTIONS = [
   { key: "summary", title: "执行摘要", owner: "PM 综合官" },
   { key: "market", title: "市场与竞争格局", owner: "竞品分析师" },
   { key: "users", title: "用户与场景", owner: "用户研究员" },
+  { key: "interview", title: "用户访谈实录", owner: "用户访谈官" },
   { key: "business", title: "商业模式", owner: "商业模式分析师" },
   { key: "gaps", title: "竞品优势与空白", owner: "PM 综合官" },
   { key: "threats", title: "值得警惕的威胁", owner: "反方质疑官" },
@@ -77,6 +78,7 @@ export function ReportView({ id }: { id: string }) {
   const contentByKey: Record<string, string | undefined> = {
     market: byAgent("market"),
     users: byAgent("user-research"),
+    interview: byAgent("interviewer"),
     business: byAgent("business"),
   };
 

@@ -5,6 +5,7 @@ import {
   USER_RESEARCH_AGENT_ID,
 } from "./user-research";
 import { createBusinessAgent, BUSINESS_AGENT_ID } from "./business";
+import { createInterviewerAgent, INTERVIEWER_AGENT_ID } from "./interviewer";
 import type { Agent } from "@/lib/types/agent";
 import type { ProductBrief } from "@/lib/types/brief";
 import type { LLMProvider } from "@/lib/llm/provider";
@@ -17,27 +18,29 @@ import { serializeAgentEvent, type AgentEvent } from "@/lib/types/events";
 
 export interface AnalysisStreamOptions {
   provider: LLMProvider;
-  /** 默认完整编队（竞品 / 用户 / 商业模式）；可注入以测试 */
+  /** 默认完整编队（竞品 / 用户 / 商业模式 / 访谈官）；可注入以测试 */
   agents?: Agent[];
-  /** 默认前三并行 */
+  /** 默认四个分析 Agent 全并行 */
   parallel?: string[];
   signal?: AbortSignal;
 }
 
-/** 默认编队：三个分析 Agent */
+/** 默认编队：四个分析 Agent */
 export function createDefaultAgents(): Agent[] {
   return [
     createMarketAgent(),
     createUserResearchAgent(),
     createBusinessAgent(),
+    createInterviewerAgent(),
   ];
 }
 
-/** 默认并行组：三个分析 Agent 同时跑（spec §5 的「并行分析」） */
+/** 默认并行组：四个分析 Agent 同时跑（spec §5 的「并行分析」） */
 export const DEFAULT_PARALLEL_AGENT_IDS: string[] = [
   MARKET_AGENT_ID,
   USER_RESEARCH_AGENT_ID,
   BUSINESS_AGENT_ID,
+  INTERVIEWER_AGENT_ID,
 ];
 
 export function createAnalysisStream(
