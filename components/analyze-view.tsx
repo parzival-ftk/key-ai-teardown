@@ -193,10 +193,11 @@ export function AnalyzeView({ id }: { id: string }) {
       )}
 
       <div className="flex flex-col gap-4">
-        {agents.map((agent) => (
+        {agents.map((agent, i) => (
           <section
             key={agent.agentId}
-            className="rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+            className="key-fade-in-up rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+            style={{ animationDelay: `${Math.min(i, 10) * 60}ms` }}
           >
             <div className="flex items-center gap-2">
               <span

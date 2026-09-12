@@ -27,3 +27,26 @@ body {
     "Microsoft YaHei",
     sans-serif;
 }
+
+/* 动效（Wave 6.2）：Agent 卡片点亮 / 报告段落渐入。
+   刻意用纯 CSS 而非 framer-motion —— 效果等价、零运行时依赖、无 React 19 兼容风险。 */
+@keyframes key-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.key-fade-in-up {
+  animation: key-fade-in-up 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key-fade-in-up {
+    animation: none;
+  }
+}

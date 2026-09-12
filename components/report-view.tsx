@@ -170,7 +170,8 @@ export function ReportView({
         return (
           <section
             key={section.key}
-            className="rounded-xl border border-gray-200 p-5 dark:border-gray-800"
+            className="key-fade-in-up rounded-xl border border-gray-200 p-5 dark:border-gray-800"
+            style={{ animationDelay: `${Math.min(i, 10) * 60}ms` }}
           >
             <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
               <span className="text-sm text-gray-400">{i + 1}.</span>
