@@ -10,6 +10,11 @@ import {
 } from "@/lib/types/compare";
 import type { Evidence } from "@/lib/types/evidence";
 import { EvidenceList } from "./evidence-list";
+import { RadarChart, type RadarSeries } from "./comparison/RadarChart";
+import {
+  hasEnoughDimensions,
+  normalizeDimensionScores,
+} from "@/lib/report/radar-dimensions";
 import {
   useClientSnapshot,
   useIsHydrated,
@@ -51,7 +56,12 @@ interface ComparisonState {
 export interface CompareInitialData {
   products: string[];
   comparison: { output: string; evidence: Evidence[]; confidence?: number };
+  /** W16：每个产品的维度打分（与 products 同序） */
+  dimensionScores?: Array<Record<string, number>>;
 }
+
+/** 雷达图配色（2-3 个竞品可区分） */
+const SERIES_COLORS = ["#2563eb", "#16a34a", "#ea580c", "#7c3aed"];
 
 /** 各产品的 Agent 进度，按产品下标索引 */
 type AgentProgress = Record<number, AgentState[]>;
@@ -136,6 +146,17 @@ export function CompareView({
   const readBrief = useMemo(() => makeCompareBriefReader(id), [id]);
   const briefState = useClientSnapshot(readBrief, MISSING_COMPARE);
   const [agentProgress, setAgentProgress] = useState<AgentProgress>({});
+  // W16：按产品下标收集维度打分（喂雷达图）；初始数据可预置（样例页）
+  const [dimensionScores, setDimensionScores] = useState<
+    Record<number, Record<string, number>>
+  >(() => {
+    const seeded: Record<number, Record<string, number>> = {};
+    initialData?.dimensionScores?.forEach((scores, index) => {
+      const normalized = normalizeDimensionScores(scores);
+      if (hasEnoughDimensions(normalized)) seeded[index] = normalized;
+    });
+    return seeded;
+  });
   const [comparison, setComparison] = useState<ComparisonState>(() =>
     initialData
       ? {
@@ -159,6 +180,20 @@ export function CompareView({
     name,
     agents: agentProgress[index] ?? [],
   }));
+
+  // W16：把收集到的维度分拼成雷达图系列（≥2 个产品才有横向对比的意义）
+  const radarSeries: RadarSeries[] = products
+    .map((product, index) => {
+      const scores = dimensionScores[index];
+      if (!scores) return null;
+      return {
+        id: `p${index}`,
+        label: product.name,
+        color: SERIES_COLORS[index % SERIES_COLORS.length],
+        scores,
+      };
+    })
+    .filter((series): series is RadarSeries => series !== null);
 
   const inputError =
     !initialData && hydrated && briefState.kind !== "ready"
@@ -229,6 +264,14 @@ export function CompareView({
               confidence: event.confidence,
               evidence: event.evidence ?? [],
             }));
+          }
+          // W16：收集维度打分（竞品分析师产出）供雷达图
+          if (event.dimensionScores && match) {
+            const scores = normalizeDimensionScores(event.dimensionScores);
+            const index = Number(match[1]);
+            if (hasEnoughDimensions(scores)) {
+              setDimensionScores((prev) => ({ ...prev, [index]: scores }));
+            }
           }
           break;
         }
@@ -328,6 +371,9 @@ export function CompareView({
           </section>
         ))}
       </div>
+
+      {/* W16：竞品雷达图 —— 至少两个产品拿到维度分才画 */}
+      {radarSeries.length >= 2 && <RadarChart series={radarSeries} size={340} />}
 
       {(comparison.status !== "idle" || comparison.output) && (
         <section className="key-fade-in-up rounded-xl border border-gray-200 p-5 dark:border-gray-800">
