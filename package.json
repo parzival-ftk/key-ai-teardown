@@ -13,7 +13,7 @@
     "test:watch": "vitest",
     "stub:llm": "node e2e/stub-llm-server.mjs",
     "demo": "node scripts/demo-smoke.mjs",
-    "eval": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs eval/cli.ts"
+    "eval": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/run-eval.ts"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

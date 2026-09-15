@@ -5,8 +5,10 @@ import type { LLMProvider } from "@/lib/llm/provider";
 import { parseProductBrief } from "@/lib/types/brief";
 
 const ANALYSIS_TEXT = "分析正文：该产品机会在于 X，风险在于 Y。";
+// W14：维度换成 Consistency / JTBD / Traceability / PRD
+// 80*.25 + 70*.25 + 90*.30 + 60*.20 = 76.5 → 77
 const JUDGE_JSON =
-  '{"scores":{"coverage":80,"evidence":70,"insight":90,"actionability":60},"rationale":{"coverage":"结构完整"}}';
+  '{"scores":{"consistency":80,"jtbd":70,"traceability":90,"prd":60},"rationale":{"consistency":"结构完整"}}';
 
 /** 同一 provider 同时扮演编队与 judge：chatStream → 分析正文，chat → judge 回复 */
 function fakeProvider(judgeReply: string): LLMProvider {
