@@ -55,6 +55,10 @@ export async function runAnalysis(
         output: result.output,
         confidence: result.confidence,
         evidence: result.evidence.length > 0 ? result.evidence : undefined,
+        // W15：PRD 回应的质疑 id（其它 Agent 无 → 不入事件，wire 不膨胀）
+        addressedCriticIds: result.addressedCriticIds?.length
+          ? result.addressedCriticIds
+          : undefined,
       });
       return result;
     } catch (err) {

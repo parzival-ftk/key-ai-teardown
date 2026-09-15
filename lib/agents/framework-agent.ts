@@ -71,20 +71,24 @@ export function createFrameworkAgent({
         { role: "user", content: userContent },
       ];
 
-      const { text, confidence, evidence } = await runCompletionStream({
-        provider: ctx.provider,
-        messages,
-        agentId: id,
-        emit: ctx.emit,
-        signal: ctx.signal,
-        inputText: buildInputText(brief),
-      });
+      const { text, confidence, evidence, addressedCriticIds } =
+        await runCompletionStream({
+          provider: ctx.provider,
+          messages,
+          agentId: id,
+          emit: ctx.emit,
+          signal: ctx.signal,
+          inputText: buildInputText(brief),
+        });
 
       return {
         agentId: id,
         output: text,
         confidence,
         evidence,
+        // W15：PRD 声明回应的质疑 id（其它 Agent 为空数组 → 不写入）
+        addressedCriticIds:
+          addressedCriticIds.length > 0 ? addressedCriticIds : undefined,
         failed: false,
       };
     },

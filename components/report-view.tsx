@@ -11,6 +11,14 @@ import {
 import type { Evidence } from "@/lib/types/evidence";
 import { EvidenceList } from "./evidence-list";
 import { QualityBoard } from "./eval/QualityBoard";
+import { MermaidViewer } from "./diagram/MermaidViewer";
+import { CriticList, PrdText } from "./traceable-text";
+import {
+  extractMermaidBlocks,
+} from "@/lib/diagram/mermaid-blocks";
+import {
+  buildTraceability,
+} from "@/lib/report/traceability";
 import { CodePanel } from "./code-panel";
 import { CodePreview } from "./code-preview";
 import { extractCodeBlocks, stripCodeBlocks } from "@/lib/report/code-blocks";
@@ -29,6 +37,8 @@ export interface ReportSection {
   confidence?: number;
   /** 证据标签（W2）—— 旧报告可能缺省 */
   evidence?: Evidence[];
+  /** W15：PRD 声明回应的质疑 id（旧报告可能缺省） */
+  addressedCriticIds?: string[];
 }
 
 export interface ReportData {
@@ -108,9 +118,22 @@ export function ReportView({
   const stored = useClientSnapshot(readStored, MISSING);
   const [exporting, setExporting] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  // W15：质疑 ↔ PRD 追溯（当前脉冲高亮的目标 DOM id）
+  const [pulseTarget, setPulseTarget] = useState<string | null>(null);
 
   const data: ReportData | null =
     initialData ?? (stored.kind === "ready" ? stored.data : null);
+
+  // W15：质疑 ↔ PRD 追溯关系（在 data 之后、早返回之前计算，保证 hooks 调用顺序稳定）
+  const traceability = useMemo(() => {
+    const critic = data?.sections.find((s) => s.agentId === "devils-advocate");
+    const prdSection = data?.sections.find((s) => s.agentId === "prd");
+    return buildTraceability(
+      critic?.output ?? "",
+      prdSection?.output ?? "",
+      prdSection?.addressedCriticIds ?? [],
+    );
+  }, [data]);
 
   if (!initialData && !hydrated) {
     return (
@@ -137,6 +160,20 @@ export function ReportView({
     data.sections.find((s) => s.agentId === agentId);
   const generatedCount = data.sections.filter((s) => s.output).length;
   const busy = exporting !== null;
+
+  /**
+   * W15：跳到指定锚点并触发脉冲高亮（质疑 ↔ PRD 双向）。
+   * 用 getElementById + scrollIntoView，避免为跨两段的跳转维护 ref 图。
+   */
+  function jumpTo(domId: string) {
+    setPulseTarget(domId);
+    document
+      .getElementById(domId)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => {
+      setPulseTarget((current) => (current === domId ? null : current));
+    }, 1600);
+  }
 
   async function handleExport(format: "markdown" | "issues") {
     if (!data) return;
@@ -208,9 +245,15 @@ export function ReportView({
       {REPORT_SECTIONS.map((section, i) => {
         const sectionData = byAgent(section.agentId);
         const raw = sectionData?.output ?? "";
-        // W6：把代码围栏从正文里剥出来，单独用可复制的代码面板展示
-        const codeBlocks = raw ? extractCodeBlocks(raw) : [];
-        const content = codeBlocks.length > 0 ? stripCodeBlocks(raw) : raw;
+        // W6：代码围栏剥出来单独用可复制面板展示；W15：mermaid 围栏剥出来交给图谱渲染器
+        // （extractCodeBlocks 会把 mermaid 围栏也一并匹配，这里显式排除，避免同一段被渲染两次）
+        const codeBlocks = raw
+          ? extractCodeBlocks(raw).filter((b) => b.lang !== "mermaid")
+          : [];
+        const mermaidBlocks = raw ? extractMermaidBlocks(raw) : [];
+        const content = raw ? stripCodeBlocks(raw) : "";
+        const isCriticSection = section.agentId === "devils-advocate";
+        const isPrdSection = section.agentId === "prd";
         return (
           <section
             key={section.key}
@@ -226,15 +269,37 @@ export function ReportView({
                 </span>
               )}
             </h2>
-            {content ? (
+            {isCriticSection && content ? (
+              <CriticList
+                text={content}
+                traceability={traceability}
+                onJump={jumpTo}
+                pulseTarget={pulseTarget}
+              />
+            ) : isPrdSection && content ? (
+              <PrdText
+                text={content}
+                onJump={jumpTo}
+                pulseTarget={pulseTarget}
+              />
+            ) : content ? (
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                 {content}
               </p>
-            ) : codeBlocks.length === 0 ? (
+            ) : codeBlocks.length === 0 && mermaidBlocks.length === 0 ? (
               <p className="text-sm text-gray-400">
                 待补充 —— 由「{section.owner}」负责。
               </p>
             ) : null}
+            {/* W15：Mermaid 图谱（flowchart / stateDiagram）逐个渲染 */}
+            {mermaidBlocks.map((block) => (
+              <MermaidViewer
+                key={`mermaid-${block.index}`}
+                code={block.code}
+                kind={block.kind}
+                title={`${section.title} · ${block.kind === "state" ? "状态图" : "流程图"}`}
+              />
+            ))}
             <CodePanel blocks={codeBlocks} />
             {codeBlocks[0] ? <CodePreview html={codeBlocks[0].code} /> : null}
             {/* 证据与正文独立渲染：正文为空但有证据时不应被连带丢弃（审查修复） */}

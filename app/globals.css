@@ -68,3 +68,31 @@ body {
     animation: none;
   }
 }
+
+/* 质疑 ↔ PRD 追溯跳转的脉冲高亮（W15） */
+@keyframes key-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55);
+    background-color: rgba(37, 99, 235, 0.12);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(37, 99, 235, 0);
+    background-color: rgba(37, 99, 235, 0.06);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+    background-color: transparent;
+  }
+}
+
+.key-pulse {
+  animation: key-pulse 1.4s ease-out 1;
+  border-radius: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key-pulse {
+    animation: none;
+    outline: 2px solid rgba(37, 99, 235, 0.7);
+  }
+}

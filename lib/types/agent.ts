@@ -22,6 +22,8 @@ export const AgentResultSchema = z.object({
   confidence: z.number().min(0).max(100).optional(),
   /** 证据标签列表 */
   evidence: z.array(EvidenceSchema).default([]),
+  /** W15：该 Agent 声明回应的质疑 id（PRD 撰写官产出；其它 Agent 缺省） */
+  addressedCriticIds: z.array(z.string()).optional(),
   /** 各 Agent 特有的结构化数据 */
   data: z.unknown().optional(),
   /** 是否失败（不阻塞整体，见 spec §8） */

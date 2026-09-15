@@ -27,6 +27,8 @@ export interface CompletionStreamResult {
   text: string;
   confidence?: number;
   evidence: Evidence[];
+  /** W15：PRD 声明回应的质疑 id（其它 Agent 为空数组） */
+  addressedCriticIds: string[];
 }
 
 export interface CompletionStreamParams {
@@ -73,10 +75,12 @@ export async function runCompletionStream(
   // 流结束且从未进入元数据区 → flush 剩余可见文本
   if (!metadataStarted) flushVisible(raw.length);
 
-  const { text, confidence, evidence } = parseStructuredOutput(raw);
+  const { text, confidence, evidence, addressedCriticIds } =
+    parseStructuredOutput(raw);
   return {
     text,
     confidence,
     evidence: normalizeEvidence(evidence, inputText),
+    addressedCriticIds,
   };
 }
