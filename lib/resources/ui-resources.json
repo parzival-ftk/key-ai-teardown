@@ -1,0 +1,186 @@
+[
+  {
+    "category": "components-and-motion",
+    "categoryName": "组件与动效",
+    "items": [
+      {
+        "id": "shadcn-ui",
+        "name": "Shadcn UI",
+        "url": "https://ui.shadcn.com/",
+        "tags": ["组件库", "Tailwind", "无障碍", "现代Web"],
+        "description": "最火的开源 React 复制即用组件库。"
+      },
+      {
+        "id": "uiverse",
+        "name": "Uiverse",
+        "url": "https://uiverse.io/",
+        "tags": ["CSS动效", "按钮卡片", "开源元素", "零依赖"],
+        "description": "社区驱动的纯 HTML/CSS 微组件库。"
+      },
+      {
+        "id": "react-bits",
+        "name": "React Bits",
+        "url": "https://reactbits.dev/",
+        "tags": ["React", "动画特效", "Tailwind", "文字背景"],
+        "description": "高质感 React 动效组件代码宝库。"
+      },
+      {
+        "id": "design-spells",
+        "name": "Design Spells",
+        "url": "https://designspells.com/",
+        "tags": ["微交互", "动画细节", "点击反馈", "设计魔法"],
+        "description": "展示顶级产品中精妙的微交互细节。"
+      },
+      {
+        "id": "unicorn-studio",
+        "name": "Unicorn Studio",
+        "url": "https://www.unicorn.studio/inspiration",
+        "tags": ["3D视觉", "WebGL", "酷炫背景", "未来感"],
+        "description": "高端 WebGL 3D 视觉与动态背景灵感。"
+      }
+    ]
+  },
+  {
+    "category": "inspiration-and-trends",
+    "categoryName": "灵感与趋势",
+    "items": [
+      {
+        "id": "recent-design",
+        "name": "Recent Design",
+        "url": "https://recent.design/",
+        "tags": ["网页画廊", "SaaS官网", "现代审美", "每日更新"],
+        "description": "精选全球最新上线的高品质 SaaS 官网。"
+      },
+      {
+        "id": "umanmade",
+        "name": "Umanmade",
+        "url": "https://www.umanmade.com/",
+        "tags": ["人文美学", "独特性Web", "品牌设计", "视觉突破"],
+        "description": "极其富有艺术质感与人文气息的网站。"
+      },
+      {
+        "id": "aiverse-design",
+        "name": "AIverse Design",
+        "url": "https://www.aiverse.design/",
+        "tags": ["AI应用UI", "Agent界面", "对话交互", "前沿范式"],
+        "description": "专为 AI 原生产品打造的界面灵感库。"
+      },
+      {
+        "id": "dribbble",
+        "name": "Dribbble",
+        "url": "https://dribbble.com/",
+        "tags": ["设计师社区", "界面概念", "插画", "全球风向"],
+        "description": "全球最大的 UI/UX 概念设计平台。"
+      },
+      {
+        "id": "mobbin",
+        "name": "Mobbin",
+        "url": "https://mobbin.com/",
+        "tags": ["真机截图", "iOS/Android", "应用流程", "竞品分析"],
+        "description": "包含上百款顶级 Mobile APP 真实截图。"
+      }
+    ]
+  },
+  {
+    "category": "system-and-naming",
+    "categoryName": "规范与命名",
+    "items": [
+      {
+        "id": "name-that-ui",
+        "name": "Name That UI",
+        "url": "https://namethatui.com/web/card",
+        "tags": ["组件命名", "样式字典", "卡片规范", "统一语言"],
+        "description": "精准定义每一种 UI 细分组件名称。"
+      },
+      {
+        "id": "ui-skills",
+        "name": "UI Skills",
+        "url": "https://www.ui-skills.com/",
+        "tags": ["排版间距", "视觉层级", "实战避坑", "细节提升"],
+        "description": "专注于 UI 微观排版与精致感提升。"
+      },
+      {
+        "id": "stitch-with-google",
+        "name": "Stitch with Google",
+        "url": "https://stitch.withgoogle.com/",
+        "tags": ["Google出品", "MaterialDesign", "设计系统", "实验范式"],
+        "description": "Google 官方下一代跨端视觉探索区。"
+      },
+      {
+        "id": "component-party",
+        "name": "Component Party",
+        "url": "https://component-party.dev/",
+        "tags": ["框架语法", "React/Vue", "语法对比", "前端必备"],
+        "description": "对比主流前端框架的组件实现逻辑。"
+      }
+    ]
+  },
+  {
+    "category": "backgrounds-and-textures",
+    "categoryName": "背景与纹理",
+    "items": [
+      {
+        "id": "svg-backgrounds",
+        "name": "SVG Backgrounds",
+        "url": "https://www.svgbackgrounds.com/",
+        "tags": ["SVG矢量", "抽象图案", "轻量背景", "自定义色彩"],
+        "description": "可自定义颜色的矢量图形背景生成器。"
+      },
+      {
+        "id": "mesh-gradients",
+        "name": "Mesh Gradients",
+        "url": "https://meshgradient.in/",
+        "tags": ["弥散渐变", "高清色彩", "CSS导出", "氛围感"],
+        "description": "极简且富有高级感的网格渐变背景。"
+      },
+      {
+        "id": "hero-patterns",
+        "name": "Hero Patterns",
+        "url": "https://heropatterns.com/",
+        "tags": ["平铺无缝", "CSS纹理", "极简图案", "无缝重复"],
+        "description": "免费可商用的纯 CSS 无缝平铺纹理库。"
+      },
+      {
+        "id": "glow-generative",
+        "name": "Glow Generative",
+        "url": "https://glow.dev/",
+        "tags": ["暗黑模式", "发光光晕", "科技感", "氛围渲染"],
+        "description": "专为 Dark Mode 页面的 Glow 发光效果。"
+      }
+    ]
+  },
+  {
+    "category": "colors-and-icons",
+    "categoryName": "色彩与图标",
+    "items": [
+      {
+        "id": "coolors",
+        "name": "Coolors",
+        "url": "https://coolors.co/",
+        "tags": ["配色方案", "一键生成", "调色板", "色彩导出"],
+        "description": "一键生成和谐配色方案的调色板工具。"
+      },
+      {
+        "id": "realtime-colors",
+        "name": "Realtime Colors",
+        "url": "https://www.realtimecolors.com/",
+        "tags": ["实时预览", "网页模拟", "配色测试", "直观对比"],
+        "description": "将配色方案直接打在真实网页模板上。"
+      },
+      {
+        "id": "lucide-icons",
+        "name": "Lucide Icons",
+        "url": "https://lucide.dev/",
+        "tags": ["开源图标", "极简矢量", "React/Vue", "风格一致性"],
+        "description": "风格统一、轻量优雅的通用矢量图标库。"
+      },
+      {
+        "id": "3dicons",
+        "name": "3Dicons",
+        "url": "https://3dicons.co/",
+        "tags": ["3D素材", "透明PNG", "源文件下载", "免费商用"],
+        "description": "高颜值、开箱即用的 3D 渲染图与图标包。"
+      }
+    ]
+  }
+]

@@ -29,6 +29,9 @@ export default function Home() {
           <Link href="/history" className="text-sm text-gray-400 hover:underline">
             历史记录 →
           </Link>
+          <Link href="/resources" className="text-sm text-gray-400 hover:underline">
+            UI 资源库 →
+          </Link>
         </div>
       </header>
 
