@@ -1,7 +1,7 @@
 # HANDOFF · KEY（AI 产品拆解助手）
 
 > 本文档写给**没有任何上下文**的接手者（agent 或人）。全文自包含，不引用任何会话记录。
-> 仓库：`D:\yinyong\Tianshu\KEY` ｜ 分支：`main` ｜ 撰写时 HEAD：`40cf73d` ｜ 日期：2026-09-15（W17–W21 后更新）
+> 仓库：`D:\yinyong\Tianshu\KEY` ｜ 分支：`main` ｜ 撰写时 HEAD：`cec9cb5` ｜ 日期：2026-09-15（W17–W30 后更新）
 > 位置：`docs\HANDOFF.md` —— W22 起从 `.rivet\` 迁出，纳入版本管理随仓库分发（原先在 `.rivet\` 下不受 git 跟踪）。
 
 ---
@@ -26,12 +26,28 @@
 |---|---|
 | `npm run lint` | exit 0（0 problems） |
 | `npm run typecheck` | exit 0 |
-| `npm run test` | **696 passed / 76 files** |
+| `npm run test` | **972 passed / 99 files** |
 | `npm run build` | exit 0 |
 
 其它入口：`npm run dev`（开发）· `npm run demo`（对已运行的 dev server 冒烟校验 5 个端点）· `npm run eval`（质量门禁 CLI，见下）。
 
-### 本会话完成的工作（W17–W21，按提交倒序；共 5 提交 / 52 文件）
+### 本会话完成的工作（W22–W30，按提交倒序；共 11 提交）
+
+| 提交 | 内容 |
+|---|---|
+| `cec9cb5` | feat(w30)：ComfyUI 桥接（inpaint workflow 构造 + WebSocket 状态流 + 结果落回画布坐标） |
+| `9d9f42b` | feat(w29)：Figma 式无限画布（视口数学 + 图层模型 + Pointer Events 交互组件 + `/canvas` 页） |
+| `72c8eee` | fix(w28)：收紧资源校验契约（id 格式 / 简介上限提为共享常量）并接通标签词表 |
+| `9de7b6c` | feat(w28)：内置 UI 资源库数据源 + 可交互导航 + 扩充 Master Prompt + `/resources` 页 |
+| `a3c76cf` | feat(w27)：语法自动修补与布局优化器（含编辑器/识别弹窗接线） |
+| `55a341c` | feat(w26)：截图识别 Modal 与 W19 编辑器集成（拖拽/选择/粘贴 + 双出口） |
+| `272d949` | feat(w25)：`/api/parse` 接入 `diagram` 通道并修正散文误判为图谱 |
+| `b943c22` | feat(w25)：架构截图识别引擎与多模态 Prompt（围栏剥离 + 节点清洗 + Stub 兜底） |
+| `d07ea4a` | feat(w24)：分支干预（Human-in-the-loop）与局部重算 |
+| `976b7bb` · `8312d00` | refactor/feat(w23)：`lib/agent` → `lib/agents` 归一化 + 多 Agent 思维树 |
+| `11cc73a` | feat(w22)：Agent 结构化思考日志与推理过程时间轴 |
+
+更早（W17–W21，`40cf73d` 及之前）：
 
 | 提交 | 内容 |
 |---|---|
@@ -122,6 +138,30 @@
 - `lib\hooks\client-snapshot.ts`：`useClientSnapshot` / `useIsHydrated` / `createStore` / `makeCachedJsonReader` —— SSR 安全的「读浏览器存储」模式
 - `lib\history.ts`：`listHistory` / `saveReport` / `getReport` / `removeReport`（KVStore 抽象，单测可注入内存实现）
 
+**W22–W27：推理过程、思维树与图谱识别/修补**
+- `lib\agents\reasoning-parser.ts`：`parseReasoningTrace`（文本与 `AgentEvent[]` 双入口；空/非标准/未闭合块一律降级为纯文本步骤，**永不抛错**）/ `summarizeReasoning` / `formatDuration`
+- `lib\agents\thought-tree.ts`：`buildThoughtTree` / `summarizeTree` / `THOUGHT_KIND_LABEL`（root / branch / conflict / decision / human-intervention 五型；单段退化为线性树干）
+- `lib\agents\branch-rerun.ts`：`prepareBranchRerun` / `materializeBranchTree` / `createInterventionBranch` / `buildSectionOverrides`（`main → branch-N` 派生；**克隆保留路径，原树逐字不变**）
+- `lib\diagram\vision-parser.ts`：`parseDiagramFromImage`（模型 / Stub / 兜底三路径）、`extractDiagramCode`、`sanitizeMermaidNodeIds`、`countDiagramNodes`、`scoreDiagramConfidence`
+- `lib\diagram\vision-prompt.ts`：`DIAGRAM_VISION_SYSTEM_PROMPT` / `buildStubDiagram`（按图片内容哈希选模板，同输入必同输出）
+- `lib\diagram\syntax-sanitizer.ts`：`sanitizeMermaidSyntax`（补图表类型头 / `->>`→`-->` / id 规范化 / 清空行与悬空箭头；**幂等**；节点规范化仅对 flowchart/graph）
+- `lib\diagram\layout-optimizer.ts`：`changeDiagramDirection` / `detectDiagramDirection` / `optimizeDiagramLayout`（复用 `formatDiagram`，不重造缩进规则）
+- `lib\diagram\mermaid-blocks.ts`：`MERMAID_ARROW_SOURCE` / `mermaidArrowPattern()` —— 边符号正则的**单一事实来源**（修补器与优化器共用）
+- 组件：`components\agent\{ReasoningTimeline,ReasoningPanel,ThoughtTreeView,NodeInterventionModal,BranchSelector}.tsx`、`components\diagram\VisionDiagramModal.tsx`
+
+**W28：内置 UI 资源库（`/resources`）**
+- `lib\resources\ui-resources.json` —— 22 条 / 5 分类，**唯一存储**
+- `lib\resources\ui-resources.ts`：`loadResourceDataset` / `filterResources` / `collectTags` / `parseResourceItem` / `appendResourceItem` / `serializeResourceDataset`
+- 共享常量：`RESOURCE_DESCRIPTION_MAX`、`RESOURCE_ID_PATTERN`、`RESOURCE_ID_RULE` —— Prompt 与校验器**同源**，不得各写一份（W28 曾因 20 vs 30 不一致被抓）
+- `lib\resources\resource-prompt.ts`：`RESOURCE_EXTRACTION_SYSTEM_PROMPT` / `buildResourceExtractionPrompt`（自动带上已收录 id 与已有标签词表）
+- `app\resources\page.tsx` + `components\resources\{ResourceNav,ResourceExtendPanel}.tsx`；首页有「UI 资源库 →」入口
+
+**W29/W30：无限画布与 ComfyUI 桥接（`/canvas`）**
+- `lib\canvas\viewport.ts`：`screenToCanvas` / `canvasToScreen` / `panBy` / `zoomAt`（**锚点不变量**：缩放前后光标下的画布点原地不动）/ `fitToRect` / `formatZoom`
+- `lib\canvas\canvas-node.ts`：`createCanvasNode` / `moveNodes` / `resizeNode`（对侧边固定 + 最小边长夹取）/ `nodesInRect` / `hitTest` / `bringToFront` / `sendToBack`
+- `components\canvas\CanvasViewport.tsx`：Pointer Events 手势（Space/中键平移、Ctrl+滚轮以光标为锚点缩放、框选、8 手柄拉伸）+ 悬浮工具栏 + 图层面板 + 属性面板
+- `lib\canvas\comfy-bridge.ts`：`buildInpaintWorkflow` / `ComfyClient`（WebSocket 与 fetch 可注入 → 握手校验 / 进度 / 执行节点 / 产出图像 / 重连 / 超时）/ `toResultCanvasNode`（结果落回框选坐标）
+
 ### 测试与验收方式（可复现）
 
 - 单测/集成：`npm run test`。集成测试用 `e2e\stub-llm-server.mjs` 驱动**完整编队**走真实 HTTP（唯一替身是 stub）
@@ -134,12 +174,13 @@
 
 ## 当前卡点
 
-1. **真实 LLM 行为未验证（最主要，跨会话一直未解决）**。所有验证都基于 stub 或确定性输入：`npm run eval` 的 judge 打分、PRD 是否老实产出合法 mermaid 与 `[Cn]` 标记、竞品分析师是否产出 `dimension_scores` —— 这些**契约已贯通并有单测，但没有用真实模型跑过一次**。仓库有 `.env`（内容未读取），**是否有可用 key 未知**。
-2. **红队拦截态的浏览器呈现未验证**。`/sample` 在浏览器里验的是「干净态」；拦截态（blocked>0、降级日志）只有 SSR 测试覆盖。
-3. **serverless 无头渲染未做**（W8 遗留）。headless 依赖本机 Chrome/Edge；Vercel 等 serverless 无浏览器会**自动降级**为正文抓取。需 `@sparticuz/chromium` 或外部渲染服务，**本地无 Vercel 环境，做了也无法验证**。
-4. **窄屏适配未做**：DAG 拓扑图、雷达图、加权排名表在窄屏是横向滚动，未做缩放/重排；Diff 双栏在窄屏会挤。
-5. **历史相关 UI 分处两地**：`components\history-list.tsx`（列表）与 `components\history\`（Diff 视图与弹窗）。合并需要一次文件移动（破坏性操作，未做）。
-6. **图谱编辑/权重/导出三件事的产物互不相干**：改了哪些图、调了哪些权重、导出过什么，散在三个组件里，没有统一的「本次分析的人工改动记录」——这是可审计性的最后一个缺口。
+1. **真实 LLM 行为（W22–W27 期间部分解决）**。W25 真机验证确认本机 `.env` **配了可用的多模态 key**（上游返回 400 invalid_request_error 而非 401），`/api/parse` 的 `diagram` 通道已用真实架构图跑通（返回 `flowchart LR` / 4 节点 / 置信度 87%）。**仍未验证**：`npm run eval` 的 judge 打分、编队各 Agent 的真实产出质量（仍是 stub / 确定性输入）。
+2. **ComfyUI 桥接的真实后端链路未验证（W30 遗留）**。`lib\canvas\comfy-bridge.ts` 的状态机（握手 / 进度 / 执行节点 / 图像 / 重连 / 超时）由 21 条单测覆盖（注入假 WebSocket 与假 fetch），但**没有连过真实 ComfyUI**：workflow 的节点图是按 ComfyUI API 格式手写的，`LoadImageMask` 的 channel 语义、`VAEEncodeForInpaint` 的 `grow_mask_by` 取值、以及 `/view` 的 URL 形状都需要对着真实实例校准。本机无 ComfyUI。
+3. **画布未与 ComfyUI 前端接线（W30 遗留）**。桥接模块与 `CanvasViewport` 目前各自独立：框选 → `buildInpaintWorkflow` → `ComfyClient.generate` → `toResultCanvasNode` 这条链**没有 UI 入口**（无「发送到 ComfyUI」按钮），属半成品边界，接手时需明确。
+4. **红队拦截态的浏览器呈现未验证**。`/sample` 在浏览器里验的是「干净态」；拦截态（blocked>0、降级日志）只有 SSR 测试覆盖。
+5. **serverless 无头渲染未做**（W8 遗留）。headless 依赖本机 Chrome/Edge；Vercel 等 serverless 无浏览器会**自动降级**为正文抓取。
+6. **窄屏适配未做**：DAG 拓扑图、雷达图、加权排名表、Diff 双栏、无限画布的图层面板/属性面板在窄屏是挤压或横滚。
+7. **历史相关 UI 分处两地**：`components\history-list.tsx`（列表）与 `components\history\`（Diff 视图与弹窗）。合并需要一次文件移动（破坏性操作，未做）。
 
 ---
 
