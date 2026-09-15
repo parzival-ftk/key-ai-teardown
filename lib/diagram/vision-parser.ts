@@ -278,11 +278,16 @@ function makeResult(
   error?: string,
 ): VisionDiagramResult {
   const trimmed = (code ?? "").trim();
-  const nodeCount = countDiagramNodes(trimmed);
+  // 没有图形声明就不是图谱 —— 此时按「未提取到结构」计，绝不给散文虚高的节点数/置信度
+  const isDiagram = detectDiagramType(trimmed) !== "unknown";
+  const nodeCount = isDiagram ? countDiagramNodes(trimmed) : 0;
+  const edgeCount = isDiagram ? countDiagramEdges(trimmed) : 0;
   const result: VisionDiagramResult = {
     code: trimmed,
     diagramType: detectDiagramType(trimmed),
-    confidenceScore: scoreDiagramConfidence(trimmed, nodeCount, countDiagramEdges(trimmed)),
+    confidenceScore: isDiagram
+      ? scoreDiagramConfidence(trimmed, nodeCount, edgeCount)
+      : 0,
     detectedNodesCount: nodeCount,
     source,
   };
@@ -327,6 +332,12 @@ function messageOf(err: unknown): string {
   return typeof err === "string" ? err : "未知错误";
 }
 
+/** 折行压平并截断，用于把模型原话放进 error 便于排障 */
+function snippet(text: string, max = 60): string {
+  const flat = (text ?? "").replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat;
+}
+
 /**
  * 从架构图截图提取 mermaid 代码。
  *
@@ -353,9 +364,17 @@ export async function parseDiagramFromImage(
       buildDiagramVisionMessages(request, validated.dataUrl),
       { signal: options.signal },
     );
-    const code = extractDiagramCode(response?.content ?? "");
+    const rawContent = response?.content ?? "";
+    const code = extractDiagramCode(rawContent);
     if (!code) {
       return buildFallbackResult("模型未返回可用的图表代码");
+    }
+    // 模型常以自然语言回话（「这张图看不清…」）；那不是一个可渲染的图谱。
+    // 此时降级为安全默认结构，并把模型原话片段带进 error —— 绝不把散文当图谱返回。
+    if (detectDiagramType(code) === "unknown") {
+      return buildFallbackResult(
+        `模型未返回可识别的 mermaid 结构（回复片段：${snippet(rawContent)}）`,
+      );
     }
     return makeResult(code, "model");
   } catch (err) {

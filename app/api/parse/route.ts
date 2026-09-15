@@ -3,6 +3,7 @@ import { parseUrl } from "@/lib/parsers/url";
 import { parsePdf } from "@/lib/parsers/pdf";
 import { parseImageDataUrl } from "@/lib/parsers/image";
 import { renderUiStructure, summarizeUiStructure } from "@/lib/parsers/dom";
+import { parseDiagramFromImage } from "@/lib/diagram/vision-parser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,21 +11,26 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/parse —— 输入解析（Wave 4）。
  *
- * 四条输入通道：
+ * 五条输入通道：
  * - text       直通（原样回显，供统一入口）
  * - url        抓取 + 正文提取
  * - pdf        base64 解码 + 文本抽取
  * - screenshot 图片 data URL 校验（图片本身在分析时随 brief 交给 Vision 模型）
+ * - diagram    架构图截图 → mermaid 代码（W25；无 Key 时走确定性 Stub）
  */
 
 interface ParseBody {
   type?: string;
   url?: string;
   text?: string;
-  /** screenshot：图片 data URL */
+  /** screenshot / diagram：图片 data URL */
   dataUrl?: string;
   /** pdf：base64（可带 data URL 前缀） */
   dataBase64?: string;
+  /** diagram：图片 MIME（dataUrl 已带前缀时可省略） */
+  mimeType?: string;
+  /** diagram：图形类型提示，如 "flowchart" / "state" */
+  diagramTypeHint?: string;
 }
 
 /** 从 data URL 或裸 base64 中取出 base64 段；非法返回 null */
@@ -129,6 +135,26 @@ export async function POST(req: NextRequest) {
         title: "",
         text: (body.text ?? "").trim(),
         ok: true,
+      });
+    }
+
+    case "diagram": {
+      // W25：架构图截图 → mermaid。引擎**永不抛错**：无 Key 走确定性 Stub、
+      // 非法输入/调用异常降级为安全默认结构并置 ok:false + error，
+      // 因此这里固定 200（与其它通道「解析失败即 422」不同，是本通道的契约）。
+      const result = await parseDiagramFromImage({
+        imageBase64: body.dataUrl ?? body.dataBase64 ?? "",
+        mimeType: body.mimeType ?? "",
+        diagramTypeHint: body.diagramTypeHint,
+      });
+      return NextResponse.json({
+        ok: result.source !== "fallback",
+        code: result.code,
+        diagramType: result.diagramType,
+        confidenceScore: result.confidenceScore,
+        detectedNodesCount: result.detectedNodesCount,
+        source: result.source,
+        error: result.error,
       });
     }
 

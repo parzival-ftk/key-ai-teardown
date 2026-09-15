@@ -180,12 +180,16 @@ describe("parseDiagramFromImage：模型路径", () => {
     expect(userContent[1].image_url?.url).toBe("data:image/webp;base64,aGVsbG8=");
   });
 
-  it("provider 返回非法代码（无图形关键字）时仍不抛错，diagramType=unknown", async () => {
-    const { provider } = fakeProvider("我无法识别这张图。");
+  it("模型回话（无 mermaid 结构）→ 降级为安全默认结构，不把散文当图谱", async () => {
+    const { provider } = fakeProvider("我无法识别这张图，请重新上传。");
     const r = await parseDiagramFromImage(REQ, { provider });
-    expect(r.source).toBe("model");
-    expect(r.diagramType).toBe("unknown");
-    expect(r.code).toContain("无法识别");
+    expect(r.source).toBe("fallback");
+    expect(r.code).toBe(FALLBACK_DIAGRAM_CODE);
+    expect(r.diagramType).toBe("flowchart");
+    expect(r.confidenceScore).toBe(0);
+    expect(r.detectedNodesCount).toBe(0);
+    // 模型原话片段进 error，便于排障
+    expect(r.error).toContain("无法识别");
   });
 });
 
