@@ -29,6 +29,7 @@ import {
 import { CodePanel } from "./code-panel";
 import { CodePreview } from "./code-preview";
 import { extractCodeBlocks, stripCodeBlocks, type CodeBlock } from "@/lib/report/code-blocks";
+import { updateMermaidInPrd } from "@/lib/report/diagram-sync";
 
 /**
  * 分段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
@@ -129,20 +130,38 @@ export function ReportView({
   const [exportError, setExportError] = useState<string | null>(null);
   // W15：质疑 ↔ PRD 追溯（当前脉冲高亮的目标 DOM id）
   const [pulseTarget, setPulseTarget] = useState<string | null>(null);
+  /**
+   * W19：图谱编辑产生的**段落覆盖**（agentId → 改写后的 output）。
+   * 只存在于内存：不改写已持久化的报告，刷新即回到 AI 原始产出（「还原」也基于此语义）。
+   */
+  const [outputOverrides, setOutputOverrides] = useState<Record<string, string>>({});
 
   const data: ReportData | null =
     initialData ?? (stored.kind === "ready" ? stored.data : null);
 
-  // W15：质疑 ↔ PRD 追溯关系（在 data 之后、早返回之前计算，保证 hooks 调用顺序稳定）
+  /**
+   * W19：把覆盖合并进 sections —— 展示（PRD 正文 / `[Cn]` 锚点）、图谱渲染、导出
+   * 三处必须共用这同一份文本，否则「编辑后不同步」。
+   */
+  const sections = useMemo(() => {
+    const base = data?.sections ?? [];
+    return base.map((s) =>
+      outputOverrides[s.agentId] === undefined
+        ? s
+        : { ...s, output: outputOverrides[s.agentId] },
+    );
+  }, [data, outputOverrides]);
+
+  // W15：质疑 ↔ PRD 追溯关系（基于合并后的文本，编辑图谱后仍保持一致）
   const traceability = useMemo(() => {
-    const critic = data?.sections.find((s) => s.agentId === "devils-advocate");
-    const prdSection = data?.sections.find((s) => s.agentId === "prd");
+    const critic = sections.find((s) => s.agentId === "devils-advocate");
+    const prdSection = sections.find((s) => s.agentId === "prd");
     return buildTraceability(
       critic?.output ?? "",
       prdSection?.output ?? "",
       prdSection?.addressedCriticIds ?? [],
     );
-  }, [data]);
+  }, [sections]);
 
   if (!initialData && !hydrated) {
     return (
@@ -166,9 +185,36 @@ export function ReportView({
   }
 
   const byAgent = (agentId: string) =>
-    data.sections.find((s) => s.agentId === agentId);
-  const generatedCount = data.sections.filter((s) => s.output).length;
+    sections.find((s) => s.agentId === agentId);
+  const generatedCount = sections.filter((s) => s.output).length;
   const busy = exporting !== null;
+
+  /** 该段的 AI 原始产出（覆盖层之下的事实来源） */
+  const baseOutputOf = (agentId: string) =>
+    data?.sections.find((s) => s.agentId === agentId)?.output ?? "";
+
+  /**
+   * 该段是否被图谱编辑**真正改写过**：内容与 AI 原稿一致时不算 ——
+   * 否则「还原为 AI 初始图谱」之后标记仍会残留（覆盖项还在，只是内容回到了原样）。
+   */
+  const isEdited = (agentId: string) =>
+    outputOverrides[agentId] !== undefined &&
+    outputOverrides[agentId] !== baseOutputOf(agentId);
+
+  /**
+   * W19：把图谱编辑写回该段的 PRD 文本。
+   * 用函数式 setState 读取「当前」覆盖值，而不是渲染期捕获的 raw ——
+   * 同一段若有多张图，连续编辑基于旧 raw 计算会丢掉前一次修改。
+   */
+  function applyDiagramEdit(agentId: string, targetIndex: number, newCode: string) {
+    setOutputOverrides((prev) => {
+      const current = prev[agentId] ?? baseOutputOf(agentId);
+      return {
+        ...prev,
+        [agentId]: updateMermaidInPrd(current, targetIndex, newCode),
+      };
+    });
+  }
 
   /**
    * W15：跳到指定锚点并触发脉冲高亮（质疑 ↔ PRD 双向）。
@@ -198,7 +244,8 @@ export function ReportView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: data.name,
-          sections: data.sections,
+          // W19：导出用合并后的 sections —— 图谱编辑要能反映到导出物里
+          sections,
           format,
         }),
       });
@@ -307,6 +354,14 @@ export function ReportView({
             <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
               <span className="text-sm text-gray-400">{i + 1}.</span>
               {section.title}
+              {isEdited(section.agentId) && (
+                <span
+                  data-section-edited
+                  className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-normal text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                >
+                  图谱已编辑
+                </span>
+              )}
               {typeof sectionData?.confidence === "number" && (
                 <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                   置信度 {sectionData.confidence}
@@ -342,6 +397,10 @@ export function ReportView({
                 code={block.code}
                 kind={block.kind}
                 title={`${section.title} · ${block.kind === "state" ? "状态图" : "流程图"}`}
+                // W19：编辑图谱 → 写回该段 PRD 文本（block.index 即围栏在原文中的序号）
+                onEditCommit={(newCode) =>
+                  applyDiagramEdit(section.agentId, block.index, newCode)
+                }
               />
             ))}
             <CodePanel blocks={panelBlocks} />

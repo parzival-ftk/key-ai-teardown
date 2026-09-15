@@ -67,6 +67,25 @@ describe("MermaidViewer（服务端静态渲染 / 动态 mount 保护）", () =>
     );
     expect(html).not.toContain("data-xstate-modal");
   });
+
+  // W19
+  it("提供 onEditCommit 时工具栏出现「编辑图谱」，否则不出现（避免死按钮）", () => {
+    const withEdit = renderToStaticMarkup(
+      <MermaidViewer code={CODE} onEditCommit={() => {}} />,
+    );
+    expect(withEdit).toContain('data-mermaid-action="edit"');
+    expect(withEdit).toContain("编辑图谱");
+
+    const withoutEdit = renderToStaticMarkup(<MermaidViewer code={CODE} />);
+    expect(withoutEdit).not.toContain('data-mermaid-action="edit"');
+  });
+
+  it("未打开编辑器时服务端不渲染编辑弹窗", () => {
+    const html = renderToStaticMarkup(
+      <MermaidViewer code={CODE} onEditCommit={() => {}} />,
+    );
+    expect(html).not.toContain("data-mermaid-editor");
+  });
 });
 
 describe("MermaidErrorFallback（非法语法降级）", () => {

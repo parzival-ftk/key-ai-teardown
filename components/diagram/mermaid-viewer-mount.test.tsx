@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MermaidViewer, buildMermaidElementId } from "./MermaidViewer";
@@ -154,5 +154,44 @@ describe("MermaidViewer 多实例挂载（回归：跨实例 id 必须唯一）"
     expect(modal).not.toBeNull();
     expect(modal?.textContent).toContain('"initial"');
     expect(modal?.textContent).toContain('"GO"');
+  });
+
+  // W19：编辑图谱 → 应用后回传新源码
+  it("点击「编辑图谱」打开编辑器；应用后 onEditCommit 收到新源码", async () => {
+    const onEditCommit = vi.fn();
+    const renderer: MermaidRenderer = async () => "<svg/>";
+    await act(async () => {
+      root.render(
+        <MermaidViewer
+          code="flowchart TD\n  A --> B"
+          renderer={renderer}
+          onEditCommit={onEditCommit}
+        />,
+      );
+      await Promise.resolve();
+    });
+    expect(container.querySelector("[data-mermaid-editor]")).toBeNull();
+
+    await act(async () => {
+      (container.querySelector('[data-mermaid-action="edit"]') as HTMLElement).click();
+    });
+    expect(container.querySelector("[data-mermaid-editor]")).not.toBeNull();
+
+    const textarea = container.querySelector(
+      "[data-editor-source]",
+    ) as HTMLTextAreaElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      "value",
+    )!.set!;
+    await act(async () => {
+      setter.call(textarea, "flowchart LR\n  X --> Y");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      (container.querySelector('[data-editor-action="apply"]') as HTMLElement).click();
+    });
+
+    expect(onEditCommit).toHaveBeenCalledWith("flowchart LR\n  X --> Y");
   });
 });

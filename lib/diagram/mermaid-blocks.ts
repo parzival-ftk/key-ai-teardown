@@ -15,8 +15,46 @@ export interface MermaidBlock {
   kind: MermaidDiagramKind;
 }
 
-/** 只匹配 ```mermaid 围栏；未闭合的围栏不匹配（不吞后续正文） */
-const MERMAID_FENCE = /```mermaid[ \t]*\r?\n([\s\S]*?)```/g;
+/**
+ * mermaid 围栏的正则**源码**（单一事实来源）。
+ *
+ * 只匹配完整围栏；未闭合的围栏不匹配（不吞后续正文）。
+ * 导出「源码字符串」而非 RegExp 实例：`/g` 正则有 lastIndex 状态，
+ * 多模块共享同一实例会在 `exec` 交替调用时互相串扰；
+ * 各调用方用 `new RegExp(MERMAID_FENCE_PATTERN, "g")` 各持一份即可。
+ */
+export const MERMAID_FENCE_PATTERN = "```mermaid[ \\t]*\\r?\\n([\\s\\S]*?)```";
+
+const MERMAID_FENCE = new RegExp(MERMAID_FENCE_PATTERN, "g");
+
+/** 带原文偏移的 mermaid 围栏（供「就地替换」类编辑使用） */
+export interface MermaidSpan extends MermaidBlock {
+  /** 整个围栏（含 ```mermaid 声明行与收尾 ```）在原文中的起始下标 */
+  start: number;
+  /** 结束下标（不含） */
+  end: number;
+}
+
+/**
+ * 提取全部 mermaid 围栏，并带出各自在原文中的下标区间。
+ * 与 `extractMermaidBlocks` 共用同一正则源码，二者的序号 / 内容必然一致。
+ */
+export function extractMermaidSpans(markdown: string): MermaidSpan[] {
+  return Array.from(
+    markdown.matchAll(new RegExp(MERMAID_FENCE_PATTERN, "g")),
+    (match, index) => {
+      const start = match.index ?? 0;
+      const code = (match[1] ?? "").trim();
+      return {
+        index,
+        start,
+        end: start + match[0].length,
+        code,
+        kind: detectDiagramKind(code),
+      };
+    },
+  );
+}
 
 /**
  * 由首行有效声明判定图形类型（mermaid 的语法关键字）。

@@ -3,7 +3,13 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { renderMermaidSvg, type MermaidRenderer } from "@/lib/diagram/render-mermaid";
 import type { MermaidDiagramKind } from "@/lib/diagram/mermaid-blocks";
+import { buildMermaidElementId } from "@/lib/diagram/mermaid-element-id";
 import { XStateExportModal } from "./XStateExportModal";
+import { MermaidEditorModal } from "./MermaidEditorModal";
+
+// 实现已抽到 lib/diagram/mermaid-element-id（编辑器实时预览共用，避免唯一性规则两处漂移）；
+// 这里 re-export 以保持既有导入路径不变。
+export { buildMermaidElementId };
 
 /**
  * Mermaid 图谱查看器（W15）。
@@ -59,21 +65,6 @@ export function MermaidErrorFallback({
   );
 }
 
-/**
- * 生成 mermaid 渲染用的元素 id。
- *
- * 必须是**跨实例唯一**：mermaid.render(id) 会创建同名临时元素、并在产出的 SVG 里嵌入
- * `#id{…}` 样式；两个实例用同一个 id 会同时造成「重复 DOM id」与「样式互相覆盖」。
- * 该 bug 曾真实存在（每实例私有 useRef 首值都是 1），故把 id 生成抽成纯函数便于回归测试。
- */
-export function buildMermaidElementId(
-  instanceKey: string,
-  seq: number,
-): string {
-  const safe = instanceKey.replace(/[^a-zA-Z0-9]/g, "");
-  return `mermaid-${safe}-${seq}`;
-}
-
 export interface MermaidViewerProps {
   /** mermaid 源码（不含围栏） */
   code: string;
@@ -81,6 +72,8 @@ export interface MermaidViewerProps {
   kind?: MermaidDiagramKind;
   /** 渲染器注入点（测试用）；缺省走 lib/diagram/render-mermaid 的动态 import 实现 */
   renderer?: MermaidRenderer;
+  /** 提供时工具栏出现「编辑图谱」（W19）；编辑结果经此回传，由父层写回 PRD */
+  onEditCommit?: (newCode: string) => void;
 }
 
 export function MermaidViewer({
@@ -88,6 +81,7 @@ export function MermaidViewer({
   title,
   kind = "flowchart",
   renderer,
+  onEditCommit,
 }: MermaidViewerProps) {
   const [result, setResult] = useState<RenderResult | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -95,6 +89,8 @@ export function MermaidViewer({
   const [copied, setCopied] = useState(false);
   // W18：状态图可导出为 XState 机器（JSON / TypeScript）
   const [xstateOpen, setXstateOpen] = useState(false);
+  // W19：图谱交互编辑器（改动同步回 PRD）
+  const [editorOpen, setEditorOpen] = useState(false);
   const instanceKey = useId();
   const seq = useRef(0);
 
@@ -213,6 +209,17 @@ export function MermaidViewer({
               导出 XState
             </button>
           )}
+          {/* W19：编辑图谱（仅当父层提供了同步回调时才出现，避免死按钮） */}
+          {onEditCommit && (
+            <button
+              type="button"
+              data-mermaid-action="edit"
+              onClick={() => setEditorOpen(true)}
+              className={toolbarButton}
+            >
+              编辑图谱
+            </button>
+          )}
         </div>
       </header>
 
@@ -247,6 +254,17 @@ export function MermaidViewer({
 
       {xstateOpen && (
         <XStateExportModal code={code} onClose={() => setXstateOpen(false)} />
+      )}
+
+      {editorOpen && (
+        <MermaidEditorModal
+          code={code}
+          kind={kind}
+          title={title}
+          renderer={renderer}
+          onApply={onEditCommit}
+          onClose={() => setEditorOpen(false)}
+        />
       )}
     </section>
   );
