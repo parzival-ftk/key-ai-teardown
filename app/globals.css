@@ -50,3 +50,21 @@ body {
     animation: none;
   }
 }
+
+/* DAG 拓扑视图（W13）：父节点已完成、子节点运行中时，连线呈现流动光效 */
+@keyframes dag-edge-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.dag-edge-flow {
+  stroke-dasharray: 6 6;
+  animation: dag-edge-flow 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dag-edge-flow {
+    animation: none;
+  }
+}
