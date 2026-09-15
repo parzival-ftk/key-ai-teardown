@@ -126,4 +126,33 @@ describe("MermaidViewer 多实例挂载（回归：跨实例 id 必须唯一）"
       container.querySelector("[data-mermaid-viewer]")?.className,
     ).toContain("fixed inset-0");
   });
+
+  // W18：状态图 → 导出 XState
+  it("状态图点击『导出 XState』打开弹窗，展示机器 JSON", async () => {
+    const renderer: MermaidRenderer = async () => "<svg/>";
+    await act(async () => {
+      root.render(
+        <MermaidViewer
+          code={"stateDiagram-v2\n  [*] --> A\n  A --> B : GO"}
+          kind="state"
+          renderer={renderer}
+        />,
+      );
+      await Promise.resolve();
+    });
+    expect(container.querySelector("[data-xstate-modal]")).toBeNull();
+
+    await act(async () => {
+      (
+        container.querySelector(
+          '[data-mermaid-action="export-xstate"]',
+        ) as HTMLElement
+      ).click();
+    });
+
+    const modal = container.querySelector("[data-xstate-modal]");
+    expect(modal).not.toBeNull();
+    expect(modal?.textContent).toContain('"initial"');
+    expect(modal?.textContent).toContain('"GO"');
+  });
 });

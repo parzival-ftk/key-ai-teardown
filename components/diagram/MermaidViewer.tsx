@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { renderMermaidSvg, type MermaidRenderer } from "@/lib/diagram/render-mermaid";
 import type { MermaidDiagramKind } from "@/lib/diagram/mermaid-blocks";
+import { XStateExportModal } from "./XStateExportModal";
 
 /**
  * Mermaid 图谱查看器（W15）。
@@ -92,6 +93,8 @@ export function MermaidViewer({
   const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // W18：状态图可导出为 XState 机器（JSON / TypeScript）
+  const [xstateOpen, setXstateOpen] = useState(false);
   const instanceKey = useId();
   const seq = useRef(0);
 
@@ -199,6 +202,17 @@ export function MermaidViewer({
           >
             {copied ? "已复制" : "复制源码"}
           </button>
+          {/* W18：状态图才提供 XState 导出（flowchart 与状态机语义不同构） */}
+          {kind === "state" && (
+            <button
+              type="button"
+              data-mermaid-action="export-xstate"
+              onClick={() => setXstateOpen(true)}
+              className={toolbarButton}
+            >
+              导出 XState
+            </button>
+          )}
         </div>
       </header>
 
@@ -230,6 +244,10 @@ export function MermaidViewer({
           {code}
         </pre>
       </details>
+
+      {xstateOpen && (
+        <XStateExportModal code={code} onClose={() => setXstateOpen(false)} />
+      )}
     </section>
   );
 }

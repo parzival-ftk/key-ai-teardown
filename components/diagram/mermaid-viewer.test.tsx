@@ -48,6 +48,25 @@ describe("MermaidViewer（服务端静态渲染 / 动态 mount 保护）", () =>
     expect(html).toContain('aria-pressed="false"');
     expect(html).not.toContain("fixed inset-0");
   });
+
+  // W18（注意：JSX 属性里的 \n 是字面量，必须用表达式形式传入真实换行）
+  it("状态图工具栏提供『导出 XState』，流程图不提供", () => {
+    const state = renderToStaticMarkup(
+      <MermaidViewer code={"stateDiagram-v2\n  [*] --> A"} kind="state" />,
+    );
+    expect(state).toContain('data-mermaid-action="export-xstate"');
+    expect(state).toContain("导出 XState");
+
+    const flowchart = renderToStaticMarkup(<MermaidViewer code={CODE} kind="flowchart" />);
+    expect(flowchart).not.toContain('data-mermaid-action="export-xstate"');
+  });
+
+  it("未打开时服务端不渲染导出弹窗", () => {
+    const html = renderToStaticMarkup(
+      <MermaidViewer code={"stateDiagram-v2\n  [*] --> A"} kind="state" />,
+    );
+    expect(html).not.toContain("data-xstate-modal");
+  });
 });
 
 describe("MermaidErrorFallback（非法语法降级）", () => {

@@ -141,3 +141,61 @@ describe("POST /api/export format=figma（W17）", () => {
     expect(doc.children[0].children).toEqual([]);
   });
 });
+
+describe("POST /api/export format=xstate（W18）", () => {
+  const STATE_DIAGRAM = `stateDiagram-v2
+  [*] --> Idle
+  Idle --> Loading : SUBMIT
+  Loading --> Success : DONE
+  Success --> [*]`;
+
+  it("直接传入 code → 返回可解析的 XState 机器 JSON", async () => {
+    const res = await POST(
+      makeRequest({ format: "xstate", code: STATE_DIAGRAM, machineId: "flow" }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("application/json");
+    const config = (await res.json()) as {
+      id: string;
+      initial: string;
+      states: Record<string, { on?: Record<string, { target: string }> }>;
+    };
+    expect(config.id).toBe("flow");
+    expect(config.initial).toBe("Idle");
+    expect(config.states.Idle.on).toEqual({ SUBMIT: { target: "Loading" } });
+  });
+
+  it("format=xstate-ts → 返回 TypeScript 源码", async () => {
+    const res = await POST(makeRequest({ format: "xstate-ts", code: STATE_DIAGRAM }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/typescript");
+    const ts = await res.text();
+    expect(ts).toContain('import { createMachine } from "xstate"');
+    expect(ts).toContain('initial: "Idle"');
+  });
+
+  it("未直接给 code 时，从 sections 的状态图围栏提取", async () => {
+    const res = await POST(
+      makeRequest({
+        format: "xstate",
+        sections: [
+          {
+            agentId: "prd",
+            output: `说明文字\n\`\`\`mermaid\n${STATE_DIAGRAM}\n\`\`\``,
+          },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const config = (await res.json()) as { initial: string };
+    expect(config.initial).toBe("Idle");
+  });
+
+  it("既无 code 又无状态图 → 不崩溃，返回空状态机", async () => {
+    const res = await POST(makeRequest({ format: "xstate", sections: [] }));
+    expect(res.status).toBe(200);
+    const config = (await res.json()) as { id: string; states: Record<string, unknown> };
+    expect(config.id).toBe("machine");
+    expect(config.states).toEqual({});
+  });
+});
