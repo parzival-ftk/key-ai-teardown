@@ -12,6 +12,8 @@ import type { Evidence } from "@/lib/types/evidence";
 import { EvidenceList } from "./evidence-list";
 import { QualityBoard } from "./eval/QualityBoard";
 import { MermaidViewer } from "./diagram/MermaidViewer";
+import { MermaidEditorModal } from "./diagram/MermaidEditorModal";
+import { VisionDiagramModal } from "./diagram/VisionDiagramModal";
 import { CriticList, PrdText } from "./traceable-text";
 import { RadarChart, type RadarSeries } from "./comparison/RadarChart";
 import {
@@ -22,6 +24,7 @@ import {
   extractMermaidBlocks,
   isSupportedDiagram,
   stripMermaidBlocks,
+  type MermaidDiagramKind,
 } from "@/lib/diagram/mermaid-blocks";
 import {
   buildTraceability,
@@ -73,6 +76,16 @@ export interface ReportData {
 type StoredReport = { kind: "ready"; data: ReportData } | { kind: "missing" };
 
 const MISSING: StoredReport = { kind: "missing" };
+
+/** W26：「从截图还原图谱」的目标图谱定位（章节 + 该段内的围栏序号） */
+interface VisionTarget {
+  agentId: string;
+  index: number;
+  kind: MermaidDiagramKind;
+  title: string;
+  /** 仅「载入编辑器」路径携带：识别出的代码 */
+  code?: string;
+}
 
 /**
  * 按 id 构造「读一次报告」的快照读取器（localStorage 优先，回退 sessionStorage）。
@@ -157,6 +170,10 @@ export function ReportView({
   const [interventionTarget, setInterventionTarget] = useState<ThoughtTreeNode | null>(
     null,
   );
+  /** W26：待「从截图还原」的目标图谱；非空即打开识别 Modal */
+  const [visionTarget, setVisionTarget] = useState<VisionTarget | null>(null);
+  /** W26：识别结果已交棒 W19 编辑器（携带代码与目标图谱） */
+  const [visionEditor, setVisionEditor] = useState<VisionTarget | null>(null);
 
   const data: ReportData | null =
     initialData ?? (stored.kind === "ready" ? stored.data : null);
@@ -490,6 +507,15 @@ export function ReportView({
                 onEditCommit={(newCode) =>
                   applyDiagramEdit(section.agentId, block.index, newCode)
                 }
+                // W26：从截图还原图谱 → 打开识别 Modal，目标即这张图
+                onExtractFromImage={() =>
+                  setVisionTarget({
+                    agentId: section.agentId,
+                    index: block.index,
+                    kind: block.kind,
+                    title: `${section.title} · ${block.kind === "state" ? "状态图" : "流程图"}`,
+                  })
+                }
               />
             ))}
             <CodePanel blocks={panelBlocks} />
@@ -517,6 +543,37 @@ export function ReportView({
         }}
         onClose={() => setInterventionTarget(null)}
       />
+
+      {/* W26：截图识别弹窗 —— 识别结果可「直接替换章节图谱」或「载入编辑器」 */}
+      {visionTarget && (
+        <VisionDiagramModal
+          open
+          title={visionTarget.title}
+          diagramTypeHint={visionTarget.kind === "state" ? "state" : "flowchart"}
+          onClose={() => setVisionTarget(null)}
+          onReplace={(newCode) => {
+            applyDiagramEdit(visionTarget.agentId, visionTarget.index, newCode);
+            setVisionTarget(null);
+          }}
+          onOpenInEditor={(newCode) => {
+            setVisionEditor({ ...visionTarget, code: newCode });
+            setVisionTarget(null);
+          }}
+        />
+      )}
+
+      {/* W26：识别结果交棒 W19 编辑器（二次可视化修正后同样写回 PRD） */}
+      {visionEditor?.code && (
+        <MermaidEditorModal
+          code={visionEditor.code}
+          kind={visionEditor.kind}
+          title={visionEditor.title}
+          onApply={(newCode) =>
+            applyDiagramEdit(visionEditor.agentId, visionEditor.index, newCode)
+          }
+          onClose={() => setVisionEditor(null)}
+        />
+      )}
     </main>
   );
 }

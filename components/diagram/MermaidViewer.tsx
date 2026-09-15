@@ -74,6 +74,8 @@ export interface MermaidViewerProps {
   renderer?: MermaidRenderer;
   /** 提供时工具栏出现「编辑图谱」（W19）；编辑结果经此回传，由父层写回 PRD */
   onEditCommit?: (newCode: string) => void;
+  /** W26：提供时工具栏出现「从截图还原图谱」入口（由父层打开截图识别 Modal） */
+  onExtractFromImage?: () => void;
 }
 
 export function MermaidViewer({
@@ -82,6 +84,7 @@ export function MermaidViewer({
   kind = "flowchart",
   renderer,
   onEditCommit,
+  onExtractFromImage,
 }: MermaidViewerProps) {
   const [result, setResult] = useState<RenderResult | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -218,6 +221,17 @@ export function MermaidViewer({
               className={toolbarButton}
             >
               编辑图谱
+            </button>
+          )}
+          {/* W26：从截图还原图谱（父层负责打开识别 Modal 并写回） */}
+          {onExtractFromImage && (
+            <button
+              type="button"
+              data-mermaid-action="extract-from-image"
+              onClick={onExtractFromImage}
+              className={toolbarButton}
+            >
+              从截图还原图谱 (Extract from Image)
             </button>
           )}
         </div>
