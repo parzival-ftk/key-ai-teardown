@@ -8,7 +8,7 @@ import {
   UNLABELED_AGENT_ID,
   type ReasoningStep,
   type ReasoningStepKind,
-} from "@/lib/agent/reasoning-parser";
+} from "@/lib/agents/reasoning-parser";
 
 /**
  * Agent 思考时间轴（W22）。

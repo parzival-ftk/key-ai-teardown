@@ -30,8 +30,8 @@ import { CodePanel } from "./code-panel";
 import { CodePreview } from "./code-preview";
 import { extractCodeBlocks, stripCodeBlocks, type CodeBlock } from "@/lib/report/code-blocks";
 import { updateMermaidInPrd } from "@/lib/report/diagram-sync";
-import { ReasoningTimeline } from "./agent/ReasoningTimeline";
-import type { ReasoningStep } from "@/lib/agent/reasoning-parser";
+import { ReasoningPanel } from "./agent/ReasoningPanel";
+import type { ReasoningStep } from "@/lib/agents/reasoning-parser";
 
 /**
  * 分段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
@@ -321,10 +321,16 @@ export function ReportView({
           <p className="text-sm text-red-600 dark:text-red-400">{exportError}</p>
         )}
 
-        {/* W22：Agent 推理过程时间轴（默认收起，点击顶部入口展开） */}
+        {/* W22/W23：Agent 推理过程（时间轴 / 思维树双视图，默认收起，点击顶部入口展开） */}
         {showReasoning && reasoningTrace.length > 0 && (
           <div data-reasoning-panel>
-            <ReasoningTimeline steps={reasoningTrace} />
+            <ReasoningPanel
+              steps={reasoningTrace}
+              onSelectNode={(node) => {
+                // 点击思维树节点 → 高亮并滚动到对应报告区块（section-<agentId>）
+                if (node.reportAnchor) jumpTo(node.reportAnchor);
+              }}
+            />
           </div>
         )}
       </header>

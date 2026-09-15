@@ -4,7 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ReasoningTimeline } from "./ReasoningTimeline";
-import { parseReasoningTrace } from "@/lib/agent/reasoning-parser";
+import { parseReasoningTrace } from "@/lib/agents/reasoning-parser";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

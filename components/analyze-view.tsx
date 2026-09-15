@@ -14,7 +14,7 @@ import {
 import { DAG_NODE_IDS } from "@/lib/orchestration/dagConfig";
 import { useDagState } from "@/lib/orchestration/use-dag-state";
 import { DAGTopologyView } from "./dag/DAGTopologyView";
-import { parseReasoningTrace } from "@/lib/agent/reasoning-parser";
+import { parseReasoningTrace } from "@/lib/agents/reasoning-parser";
 
 type AgentStatus = "running" | "done" | "error";
 

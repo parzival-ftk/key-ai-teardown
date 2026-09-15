@@ -3,7 +3,7 @@ import type { Evidence } from "@/lib/types/evidence";
 import {
   parseReasoningTrace,
   type ReasoningStep,
-} from "@/lib/agent/reasoning-parser";
+} from "@/lib/agents/reasoning-parser";
 
 /**
  * 内置样例报告（Wave 6.3；W2 补可信度层）—— 断网 / 无 API key 时也能完整演示。
