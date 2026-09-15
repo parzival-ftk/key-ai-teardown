@@ -31,7 +31,16 @@ import { CodePreview } from "./code-preview";
 import { extractCodeBlocks, stripCodeBlocks, type CodeBlock } from "@/lib/report/code-blocks";
 import { updateMermaidInPrd } from "@/lib/report/diagram-sync";
 import { ReasoningPanel } from "./agent/ReasoningPanel";
+import { BranchSelector } from "./agent/BranchSelector";
+import { NodeInterventionModal } from "./agent/NodeInterventionModal";
 import type { ReasoningStep } from "@/lib/agents/reasoning-parser";
+import type { ThoughtTreeNode } from "@/lib/agents/thought-tree";
+import {
+  MAIN_BRANCH_ID,
+  createInterventionBranch,
+  createMainBranch,
+  type Branch,
+} from "@/lib/agents/branch-rerun";
 
 /**
  * 分段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
@@ -141,22 +150,43 @@ export function ReportView({
   const [outputOverrides, setOutputOverrides] = useState<Record<string, string>>({});
   /** W22：是否展开「Agent 推理过程」面板 */
   const [showReasoning, setShowReasoning] = useState(false);
+  /** W24：人工干预派生的分支（main 由推理步骤派生，不入此表） */
+  const [extraBranches, setExtraBranches] = useState<Branch[]>([]);
+  const [activeBranchId, setActiveBranchId] = useState<string>(MAIN_BRANCH_ID);
+  /** W24：待干预的树节点（弹窗开关） */
+  const [interventionTarget, setInterventionTarget] = useState<ThoughtTreeNode | null>(
+    null,
+  );
 
   const data: ReportData | null =
     initialData ?? (stored.kind === "ready" ? stored.data : null);
 
+  /** W22/W24：结构化推理过程（旧报告缺省 → 空数组，入口不出现） */
+  const reasoningTrace = data?.reasoningTrace ?? [];
+  /** W24：主分支由推理步骤派生；人工干预分支保存在 extraBranches */
+  const mainBranch =
+    reasoningTrace.length > 0 ? createMainBranch(reasoningTrace) : null;
+  const branches = mainBranch ? [mainBranch, ...extraBranches] : extraBranches;
+  const activeBranch =
+    branches.find((b) => b.id === activeBranchId) ?? mainBranch;
+
   /**
-   * W19：把覆盖合并进 sections —— 展示（PRD 正文 / `[Cn]` 锚点）、图谱渲染、导出
-   * 三处必须共用这同一份文本，否则「编辑后不同步」。
+   * W19/W24：把「图谱编辑覆盖」与「分支章节覆盖」合并进 sections ——
+   * 展示（PRD 正文 / `[Cn]` 锚点）、图谱渲染、导出三处必须共用这同一份文本。
+   * 分支覆盖优先（它代表另一条推导线）。
    */
   const sections = useMemo(() => {
     const base = data?.sections ?? [];
-    return base.map((s) =>
-      outputOverrides[s.agentId] === undefined
-        ? s
-        : { ...s, output: outputOverrides[s.agentId] },
-    );
-  }, [data, outputOverrides]);
+    const branchOverrides = activeBranch?.sectionOverrides ?? {};
+    return base.map((s) => {
+      const branchOutput = branchOverrides[s.agentId];
+      if (branchOutput !== undefined) return { ...s, output: branchOutput };
+      if (outputOverrides[s.agentId] !== undefined) {
+        return { ...s, output: outputOverrides[s.agentId] };
+      }
+      return s;
+    });
+  }, [data, outputOverrides, activeBranch]);
 
   // W15：质疑 ↔ PRD 追溯关系（基于合并后的文本，编辑图谱后仍保持一致）
   const traceability = useMemo(() => {
@@ -189,9 +219,6 @@ export function ReportView({
       </main>
     );
   }
-
-  /** W22：结构化推理过程（旧报告缺省 → 空数组，入口不出现） */
-  const reasoningTrace = data.reasoningTrace ?? [];
 
   const byAgent = (agentId: string) =>
     sections.find((s) => s.agentId === agentId);
@@ -241,6 +268,24 @@ export function ReportView({
     window.setTimeout(() => {
       setPulseTarget((current) => (current === target?.id ? null : current));
     }, 1600);
+  }
+
+  /**
+   * W24：对某节点施加人工干预 —— 派生一个新分支（main → branch-1 → …）并切过去。
+   * 该分支带独立的思维树与章节覆盖；随时可切回主分支。
+   */
+  function handleIntervene(node: ThoughtTreeNode, instruction: string) {
+    if (!activeBranch) return;
+    const branch = createInterventionBranch(
+      activeBranch.tree,
+      node.id,
+      instruction,
+      branches.map((b) => b.id),
+      (data?.sections ?? []).map((s) => ({ agentId: s.agentId, output: s.output })),
+    );
+    setExtraBranches((prev) => [...prev, branch]);
+    setActiveBranchId(branch.id);
+    setShowReasoning(true);
   }
 
   async function handleExport(format: "markdown" | "issues") {
@@ -321,15 +366,26 @@ export function ReportView({
           <p className="text-sm text-red-600 dark:text-red-400">{exportError}</p>
         )}
 
-        {/* W22/W23：Agent 推理过程（时间轴 / 思维树双视图，默认收起，点击顶部入口展开） */}
+        {/* W24：分支选择器（主推理分支 / 人工干预分支）—— 切换同时更新思维树与报告章节 */}
+        {branches.length > 0 && (
+          <BranchSelector
+            branches={branches}
+            activeId={activeBranch?.id ?? MAIN_BRANCH_ID}
+            onSelect={setActiveBranchId}
+          />
+        )}
+
+        {/* W22/W23/W24：Agent 推理过程（时间轴 / 思维树双视图，默认收起，点击顶部入口展开） */}
         {showReasoning && reasoningTrace.length > 0 && (
           <div data-reasoning-panel>
             <ReasoningPanel
               steps={reasoningTrace}
+              tree={activeBranch?.tree}
               onSelectNode={(node) => {
                 // 点击思维树节点 → 高亮并滚动到对应报告区块（section-<agentId>）
                 if (node.reportAnchor) jumpTo(node.reportAnchor);
               }}
+              onIntervene={setInterventionTarget}
             />
           </div>
         )}
@@ -451,6 +507,16 @@ export function ReportView({
           </section>
         );
       })}
+
+      {/* W24：节点干预弹窗（提交后派生新分支并切换过去） */}
+      <NodeInterventionModal
+        open={interventionTarget !== null}
+        node={interventionTarget}
+        onSubmit={(instruction) => {
+          if (interventionTarget) handleIntervene(interventionTarget, instruction);
+        }}
+        onClose={() => setInterventionTarget(null)}
+      />
     </main>
   );
 }

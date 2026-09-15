@@ -40,7 +40,13 @@ describe("buildThoughtTree：安全降级", () => {
     expect(tree.root.children).toEqual([]);
     expect(tree.nodes).toHaveLength(1);
     expect(tree.linear).toBe(true);
-    expect(tree.counts).toEqual({ root: 1, branch: 0, conflict: 0, decision: 0 });
+    expect(tree.counts).toEqual({
+      root: 1,
+      branch: 0,
+      conflict: 0,
+      decision: 0,
+      "human-intervention": 0,
+    });
   });
 
   it("非法输入（null / 非数组）→ 退化为仅根节点，不抛错", () => {
@@ -93,9 +99,13 @@ describe("buildThoughtTree：树状结构", () => {
 
   it("counts 之和等于节点总数；flatten 为前序 DFS", () => {
     const counts = tree.counts;
-    expect(counts.root + counts.branch + counts.conflict + counts.decision).toBe(
-      tree.nodes.length,
-    );
+    expect(
+      counts.root +
+        counts.branch +
+        counts.conflict +
+        counts.decision +
+        counts["human-intervention"],
+    ).toBe(tree.nodes.length);
     expect(flattenThoughtTree(tree.root).map((n) => n.agentId)).toEqual([
       undefined,
       "market",

@@ -97,3 +97,68 @@ describe("报告页 W23：推理面板双视图与树节点联动", () => {
     expect(section?.className).toContain("key-pulse");
   });
 });
+
+describe("报告页 W24：节点干预与分支切换", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    Element.prototype.scrollIntoView = () => {};
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  const mount = () =>
+    act(() => root.render(<ReportView id="t" initialData={DATA} />));
+  const click = (el: Element | null) => act(() => (el as HTMLElement).click());
+
+  it("干预 → 派生分支、切换分支动态更新思维树与报告正文", async () => {
+    mount();
+    // 打开推理面板并切到思维树
+    click(container.querySelector("[data-reasoning-entry]"));
+    click(container.querySelector('[data-reasoning-tab="tree"]'));
+
+    // 初始只有主推理分支
+    expect(container.querySelectorAll("[data-branch-option]")).toHaveLength(1);
+
+    // 点 prd 节点的「干预」→ 打开弹窗
+    const prdNode = container.querySelector('[data-thought-agent="prd"]')!;
+    click(prdNode.querySelector("[data-thought-intervene]"));
+    expect(container.querySelector("[data-node-intervention-modal]")).not.toBeNull();
+
+    // 选预设并提交
+    click(container.querySelector('[data-intervention-preset="补充安全性约束"]'));
+    await act(async () => {
+      (container.querySelector("[data-intervention-submit]") as HTMLElement).click();
+    });
+
+    // 弹窗关闭；出现 branch-1 且被选中
+    expect(container.querySelector("[data-node-intervention-modal]")).toBeNull();
+    expect(container.querySelectorAll("[data-branch-option]")).toHaveLength(2);
+    expect(
+      container
+        .querySelector('[data-branch-option="branch-1"]')
+        ?.getAttribute("aria-selected"),
+    ).toBe("true");
+
+    // 报告正文出现人工干预约束；思维树出现 human-intervention 节点
+    const prdSection = container.querySelector("#section-prd")!;
+    expect(prdSection.textContent).toContain("人工干预约束");
+    expect(prdSection.textContent).toContain("补充安全性约束");
+    expect(
+      container.querySelector('[data-thought-kind="human-intervention"]'),
+    ).not.toBeNull();
+
+    // 切回主分支 → 报告正文恢复原样
+    click(container.querySelector('[data-branch-option="main"]'));
+    expect(container.querySelector("#section-prd")!.textContent).not.toContain(
+      "人工干预约束",
+    );
+  });
+});

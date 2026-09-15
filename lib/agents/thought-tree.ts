@@ -21,13 +21,20 @@ import type { ReasoningStep, ReasoningStepKind } from "./reasoning-parser";
  * 纯函数、可在 Node 下单测；`lib` 侧只依赖其它 `lib` 模块（不引 components）。
  */
 
-export type ThoughtNodeKind = "root" | "branch" | "conflict" | "decision";
+export type ThoughtNodeKind =
+  | "root"
+  | "branch"
+  | "conflict"
+  | "decision"
+  /** W24：人工干预节点（分支重算的插入点） */
+  | "human-intervention";
 
 export const THOUGHT_KIND_LABEL: Record<ThoughtNodeKind, string> = {
   root: "起点",
   branch: "分支",
   conflict: "博弈",
   decision: "结论",
+  "human-intervention": "人工干预",
 };
 
 export interface ThoughtTreeNode {
@@ -204,12 +211,14 @@ function countKinds(nodes: ThoughtTreeNode[]): Record<ThoughtNodeKind, number> {
     branch: 0,
     conflict: 0,
     decision: 0,
+    "human-intervention": 0,
   };
   for (const node of nodes) counts[node.kind] += 1;
   return counts;
 }
 
-function toResult(root: ThoughtTreeNode): ThoughtTreeResult {
+/** 由根节点重算整棵树的摘要（节点表 / 是否线性 / 类型计数） */
+export function summarizeTree(root: ThoughtTreeNode): ThoughtTreeResult {
   const nodes = flattenThoughtTree(root);
   return {
     root,
@@ -273,15 +282,15 @@ export function buildThoughtTree(steps: ReasoningStep[]): ThoughtTreeResult {
   try {
     const idGen = makeIdGen();
     if (!Array.isArray(steps) || steps.length === 0) {
-      return toResult(makeRoot(idGen()));
+      return summarizeTree(makeRoot(idGen()));
     }
     const segments = groupIntoSegments(steps);
     const root =
       segments.length <= 1
         ? buildTrunk(segments[0]?.steps ?? [], idGen)
         : buildBranched(segments, idGen);
-    return toResult(root);
+    return summarizeTree(root);
   } catch {
-    return toResult(makeRoot("node-0"));
+    return summarizeTree(makeRoot("node-0"));
   }
 }

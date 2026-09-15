@@ -5,8 +5,9 @@ import { REPORT_SECTIONS } from "@/lib/report/sections";
 import {
   buildThoughtTree,
   THOUGHT_KIND_LABEL,
-  type ThoughtTreeNode,
   type ThoughtNodeKind,
+  type ThoughtTreeResult,
+  type ThoughtTreeNode,
 } from "@/lib/agents/thought-tree";
 import {
   formatDuration,
@@ -44,6 +45,11 @@ const KIND_STYLE: Record<ThoughtNodeKind, { badge: string; dot: string }> = {
     badge: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200",
     dot: "bg-green-500",
   },
+  // 人工干预节点：靛蓝（人给的，不是模型给的）
+  "human-intervention": {
+    badge: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200",
+    dot: "bg-indigo-500",
+  },
 };
 
 /** agent id → 展示名（复用报告章节 owner，避免与 sections.ts 漂移） */
@@ -53,18 +59,25 @@ const AGENT_DISPLAY: Record<string, string> = Object.fromEntries(
 
 export interface ThoughtTreeViewProps {
   steps: ReasoningStep[];
+  /** 直接指定树（分支视图）——缺省由 steps 构建 */
+  tree?: ThoughtTreeResult;
   /** 节点点击回调（用于高亮报告区块）；展开细节由组件内部处理 */
   onSelectNode?: (node: ThoughtTreeNode) => void;
+  /** 点「干预」回调（打开人工干预弹窗） */
+  onIntervene?: (node: ThoughtTreeNode) => void;
   /** 默认展开的节点 id */
   defaultExpandedIds?: string[];
 }
 
 export function ThoughtTreeView({
   steps,
+  tree: treeOverride,
   onSelectNode,
+  onIntervene,
   defaultExpandedIds = [],
 }: ThoughtTreeViewProps) {
-  const tree = useMemo(() => buildThoughtTree(steps), [steps]);
+  const builtTree = useMemo(() => buildThoughtTree(steps), [steps]);
+  const tree = treeOverride ?? builtTree;
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(defaultExpandedIds),
   );
@@ -143,6 +156,17 @@ export function ThoughtTreeView({
               {open ? "收起" : "展开"}
             </span>
           </button>
+          {onIntervene && (
+            <button
+              type="button"
+              data-thought-intervene={node.id}
+              onClick={() => onIntervene(node)}
+              title="修正 / 干预此步骤"
+              className="shrink-0 rounded-full border border-indigo-300 px-2 py-0.5 text-[11px] font-medium text-indigo-700 transition hover:border-indigo-500 dark:border-indigo-800 dark:text-indigo-300"
+            >
+              干预
+            </button>
+          )}
         </div>
 
         {open && (

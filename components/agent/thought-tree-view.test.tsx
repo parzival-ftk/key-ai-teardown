@@ -103,4 +103,21 @@ describe("ThoughtTreeView 节点点击联动（jsdom）", () => {
     expect(prd.contains(rebuttal)).toBe(true);
     expect(rebuttal.getAttribute("data-thought-depth")).toBe("2");
   });
+
+  it("点「干预」按钮触发 onIntervene（携带该节点）", () => {
+    const onIntervene = vi.fn();
+    mount(<ThoughtTreeView steps={STEPS} onIntervene={onIntervene} />);
+    const btn = container.querySelector(
+      '[data-thought-agent="prd"] [data-thought-intervene]',
+    ) as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    act(() => btn.click());
+    expect(onIntervene).toHaveBeenCalledTimes(1);
+    expect(onIntervene.mock.calls[0][0].agentId).toBe("prd");
+  });
+
+  it("未提供 onIntervene 时不渲染干预按钮", () => {
+    mount(<ThoughtTreeView steps={STEPS} />);
+    expect(container.querySelector("[data-thought-intervene]")).toBeNull();
+  });
 });

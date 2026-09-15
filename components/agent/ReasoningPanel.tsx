@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ReasoningTimeline } from "./ReasoningTimeline";
 import { ThoughtTreeView } from "./ThoughtTreeView";
 import type { ReasoningStep } from "@/lib/agents/reasoning-parser";
-import type { ThoughtTreeNode } from "@/lib/agents/thought-tree";
+import type { ThoughtTreeResult, ThoughtTreeNode } from "@/lib/agents/thought-tree";
 
 /**
  * 报告页「Agent 推理过程」面板（W23）。
@@ -20,10 +20,14 @@ export type ReasoningView = "timeline" | "tree";
 
 export interface ReasoningPanelProps {
   steps: ReasoningStep[];
+  /** 直接指定思维树（分支视图）；缺省由 steps 构建 */
+  tree?: ThoughtTreeResult;
   /** 默认视图（默认时间轴） */
   defaultView?: ReasoningView;
   /** 树节点点击回调（用于高亮报告区块） */
   onSelectNode?: (node: ThoughtTreeNode) => void;
+  /** 点「干预」回调（打开人工干预弹窗） */
+  onIntervene?: (node: ThoughtTreeNode) => void;
 }
 
 const TABS: { key: ReasoningView; label: string }[] = [
@@ -33,8 +37,10 @@ const TABS: { key: ReasoningView; label: string }[] = [
 
 export function ReasoningPanel({
   steps,
+  tree,
   defaultView = "timeline",
   onSelectNode,
+  onIntervene,
 }: ReasoningPanelProps) {
   const [view, setView] = useState<ReasoningView>(defaultView);
 
@@ -70,7 +76,12 @@ export function ReasoningPanel({
       {view === "timeline" ? (
         <ReasoningTimeline steps={steps} />
       ) : (
-        <ThoughtTreeView steps={steps} onSelectNode={onSelectNode} />
+        <ThoughtTreeView
+          steps={steps}
+          tree={tree}
+          onSelectNode={onSelectNode}
+          onIntervene={onIntervene}
+        />
       )}
     </div>
   );
