@@ -14,6 +14,7 @@ import {
 import { DAG_NODE_IDS } from "@/lib/orchestration/dagConfig";
 import { useDagState } from "@/lib/orchestration/use-dag-state";
 import { DAGTopologyView } from "./dag/DAGTopologyView";
+import { parseReasoningTrace } from "@/lib/agent/reasoning-parser";
 
 type AgentStatus = "running" | "done" | "error";
 
@@ -119,11 +120,18 @@ export function AnalyzeView({ id }: { id: string }) {
     // 上面的 if (!brief) 已守卫；取别名以便在闭包内保持非空类型
     const activeBrief = brief;
     const current: AgentState[] = [];
+    // W22：累积原始事件 —— 分析结束后提炼成「Agent 推理过程」时间轴
+    const eventLog: AgentEvent[] = [];
     const persistReport = () => {
       const evidenceStats = summarizeEvidence(
         current.flatMap((a) => a.evidence),
       );
-      const report = { name: activeBrief.name, sections: current };
+      const report = {
+        name: activeBrief.name,
+        sections: current,
+        // W22：从事件流提炼结构化推理步骤（纯函数；脏数据也返回空数组，不抛错）
+        reasoningTrace: parseReasoningTrace(eventLog),
+      };
       try {
         sessionStorage.setItem(`report:${id}`, JSON.stringify(report));
       } catch {
@@ -142,6 +150,7 @@ export function AnalyzeView({ id }: { id: string }) {
     };
 
     const applyEvent = (event: AgentEvent) => {
+      eventLog.push(event);
       switch (event.type) {
         case "agent:start":
           current.push({

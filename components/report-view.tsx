@@ -30,6 +30,8 @@ import { CodePanel } from "./code-panel";
 import { CodePreview } from "./code-preview";
 import { extractCodeBlocks, stripCodeBlocks, type CodeBlock } from "@/lib/report/code-blocks";
 import { updateMermaidInPrd } from "@/lib/report/diagram-sync";
+import { ReasoningTimeline } from "./agent/ReasoningTimeline";
+import type { ReasoningStep } from "@/lib/agent/reasoning-parser";
 
 /**
  * 分段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
@@ -54,6 +56,8 @@ export interface ReportSection {
 export interface ReportData {
   name?: string;
   sections: ReportSection[];
+  /** W22：本次分析的 Agent 推理过程（结构化步骤）；旧报告可能缺省 */
+  reasoningTrace?: ReasoningStep[];
 }
 
 /** 存储读取结果：ready（拿到报告）或 missing（本地没有） */
@@ -135,6 +139,8 @@ export function ReportView({
    * 只存在于内存：不改写已持久化的报告，刷新即回到 AI 原始产出（「还原」也基于此语义）。
    */
   const [outputOverrides, setOutputOverrides] = useState<Record<string, string>>({});
+  /** W22：是否展开「Agent 推理过程」面板 */
+  const [showReasoning, setShowReasoning] = useState(false);
 
   const data: ReportData | null =
     initialData ?? (stored.kind === "ready" ? stored.data : null);
@@ -183,6 +189,9 @@ export function ReportView({
       </main>
     );
   }
+
+  /** W22：结构化推理过程（旧报告缺省 → 空数组，入口不出现） */
+  const reasoningTrace = data.reasoningTrace ?? [];
 
   const byAgent = (agentId: string) =>
     sections.find((s) => s.agentId === agentId);
@@ -296,9 +305,27 @@ export function ReportView({
           >
             {exporting === "issues" ? "导出中…" : "导出 PRD Issues"}
           </button>
+          {reasoningTrace.length > 0 && (
+            <button
+              type="button"
+              data-reasoning-entry
+              aria-expanded={showReasoning}
+              onClick={() => setShowReasoning((v) => !v)}
+              className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-500 dark:border-gray-700 dark:text-gray-200"
+            >
+              {showReasoning ? "收起 Agent 推理过程" : "查看 Agent 推理过程"}
+            </button>
+          )}
         </div>
         {exportError && (
           <p className="text-sm text-red-600 dark:text-red-400">{exportError}</p>
+        )}
+
+        {/* W22：Agent 推理过程时间轴（默认收起，点击顶部入口展开） */}
+        {showReasoning && reasoningTrace.length > 0 && (
+          <div data-reasoning-panel>
+            <ReasoningTimeline steps={reasoningTrace} />
+          </div>
         )}
       </header>
 

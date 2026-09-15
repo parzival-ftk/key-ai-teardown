@@ -176,3 +176,24 @@ describe("报告页 W15：Mermaid 图谱与质疑↔PRD 追溯", () => {
     expect(html).toContain("sequenceDiagram");
   });
 });
+
+describe("报告页 W22：Agent 推理过程入口", () => {
+  it("报告带 reasoningTrace 时渲染入口（默认收起，面板不渲染）", () => {
+    const html = render({
+      name: "X",
+      sections: [],
+      reasoningTrace: [
+        { index: 0, kind: "thought", agentId: "prd", content: "断言" },
+      ],
+    });
+    expect(html).toContain("data-reasoning-entry");
+    expect(html).toContain("查看 Agent 推理过程");
+    expect(html).not.toContain("data-reasoning-panel");
+  });
+
+  it("报告无 reasoningTrace（旧报告）时不渲染入口", () => {
+    const html = render({ name: "X", sections: [] });
+    expect(html).not.toContain("data-reasoning-entry");
+    expect(html).not.toContain("查看 Agent 推理过程");
+  });
+});

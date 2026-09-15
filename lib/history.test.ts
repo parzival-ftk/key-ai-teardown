@@ -96,4 +96,19 @@ describe("本地历史记录（Wave 5.6）", () => {
     saveReport(store, { id: "a", name: "X" }, { v: 1 }, 1000);
     expect(listHistory(store)[0].evidenceStats).toBeUndefined();
   });
+
+  it("报告体内的 reasoningTrace 原样往返（W22 存储接通）", () => {
+    const store = memoryStore();
+    const report = {
+      name: "X",
+      sections: [],
+      reasoningTrace: [
+        { index: 0, kind: "thought" as const, agentId: "prd", content: "断言" },
+      ],
+    };
+    saveReport(store, { id: "r", name: "X" }, report, 1000);
+    const back = getReport<typeof report>(store, "r");
+    expect(back?.reasoningTrace?.[0]?.content).toBe("断言");
+    expect(back?.reasoningTrace?.[0]?.agentId).toBe("prd");
+  });
 });

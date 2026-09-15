@@ -1,5 +1,9 @@
 import { USER_RESEARCH_AGENT_ID } from "@/lib/types/agent-ids";
 import type { Evidence } from "@/lib/types/evidence";
+import {
+  parseReasoningTrace,
+  type ReasoningStep,
+} from "@/lib/agent/reasoning-parser";
 
 /**
  * 内置样例报告（Wave 6.3；W2 补可信度层）—— 断网 / 无 API key 时也能完整演示。
@@ -25,6 +29,8 @@ export interface SampleReportSection {
 export interface SampleReport {
   name: string;
   sections: SampleReportSection[];
+  /** W22：样例「Agent 推理过程」步骤（供报告页时间轴演示） */
+  reasoningTrace?: ReasoningStep[];
 }
 
 export const SAMPLE_REPORT_NAME = "Notion（样例）";
@@ -376,9 +382,34 @@ stateDiagram-v2
   },
 ];
 
+/**
+ * W22：样例推理日志（ReAct 风格：Thought / Action / Observation）——
+ * 经 parseReasoningTrace 提炼成结构化步骤，让 `/sample` 无需 LLM 也能演示
+ * 报告页的「Agent 推理过程」时间轴（含耗时统计与按 Agent 筛选）。
+ */
+const SAMPLE_REASONING_LOG = [
+  "MarketAgent:",
+  "Thought: 先把可比较的维度定下来，**没有统一心智就没有对比**。",
+  'Action: scan_competitors("协作与文档工具")',
+  "Observation: 识别到 4 个直接竞品，耗时 1.1s",
+  "",
+  "UserResearchAgent:",
+  "Thought: 结论：三类用户可按协作深度聚类，而非团队规模。",
+  "Observation: 产出 3 个用户画像，耗时 0.8s",
+  "",
+  "PrdAgent:",
+  "Thought: **每条用户故事都要挂回一条质疑**，否则 PRD 无法自证。",
+  'Action: draft_prd("模板中心")',
+  "Observation: 生成 5 条用户故事与验收标准，耗时 1.2s",
+  "",
+  "RebuttalAgent:",
+  "Thought: 结论：模板生态可能是伪壁垒，供给成本被低估。",
+].join("\n");
+
 export const SAMPLE_REPORT: SampleReport = {
   name: SAMPLE_REPORT_NAME,
   sections: SECTIONS,
+  reasoningTrace: parseReasoningTrace(SAMPLE_REASONING_LOG),
 };
 
 /**
