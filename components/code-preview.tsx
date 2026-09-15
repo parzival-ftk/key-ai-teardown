@@ -6,6 +6,7 @@ import {
   makeCachedValue,
   useClientSnapshot,
 } from "@/lib/hooks/client-snapshot";
+import { FigmaExportModal } from "./code-canvas/FigmaExportModal";
 
 /** 选中高亮色（导出时会连同选中属性一起剥掉，避免污染代码） */
 const SELECT_OUTLINE = "2px solid #2563eb";
@@ -40,6 +41,10 @@ export function CodePreview({ html }: { html: string }) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [classDraft, setClassDraft] = useState("");
   const [copied, setCopied] = useState(false);
+  // W17：Figma JSON 导出（弹窗展示 / 复制 / 下载）
+  const [figmaJson, setFigmaJson] = useState<string | null>(null);
+  const [figmaBusy, setFigmaBusy] = useState(false);
+  const [figmaError, setFigmaError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -75,6 +80,30 @@ export function CodePreview({ html }: { html: string }) {
 
   if (!html.trim()) return null;
 
+  /**
+   * W17：请求服务端把当前 HTML+Tailwind 转成 Figma Node JSON。
+   * 转换引擎走 `/api/export`（cheerio 在 server 跑，避免打进 client bundle），
+   * 拿到 JSON 文本后交给弹窗展示；失败时给出可读错误而非静默。
+   */
+  async function exportFigma() {
+    if (!html.trim()) return;
+    setFigmaBusy(true);
+    setFigmaError(null);
+    try {
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format: "figma", html }),
+      });
+      if (!res.ok) throw new Error(`导出失败：HTTP ${res.status}`);
+      setFigmaJson(await res.text());
+    } catch (err) {
+      setFigmaError(err instanceof Error ? err.message : "导出失败，请重试");
+    } finally {
+      setFigmaBusy(false);
+    }
+  }
+
   function applyClass() {
     const doc = iframeRef.current?.contentDocument;
     const el = doc?.querySelector(`[${SELECT_ATTR}]`);
@@ -104,14 +133,28 @@ export function CodePreview({ html }: { html: string }) {
     <div className="mt-3">
       <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
         <span>预览（点击元素可选中并改 class）</span>
-        <button
-          type="button"
-          onClick={copyEdited}
-          className="rounded px-2 py-0.5 transition hover:bg-gray-200 dark:hover:bg-gray-800"
-        >
-          {copied ? "已复制" : "复制当前 HTML"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={exportFigma}
+            disabled={figmaBusy}
+            className="rounded px-2 py-0.5 transition hover:bg-gray-200 disabled:opacity-40 dark:hover:bg-gray-800"
+          >
+            {figmaBusy ? "导出中…" : "导出 Figma JSON"}
+          </button>
+          <button
+            type="button"
+            onClick={copyEdited}
+            className="rounded px-2 py-0.5 transition hover:bg-gray-200 dark:hover:bg-gray-800"
+          >
+            {copied ? "已复制" : "复制当前 HTML"}
+          </button>
+        </div>
       </div>
+
+      {figmaError && (
+        <p className="mb-1 text-xs text-red-600 dark:text-red-400">{figmaError}</p>
+      )}
 
       <iframe
         ref={iframeRef}
@@ -140,6 +183,10 @@ export function CodePreview({ html }: { html: string }) {
             </button>
           </div>
         </div>
+      )}
+
+      {figmaJson && (
+        <FigmaExportModal json={figmaJson} onClose={() => setFigmaJson(null)} />
       )}
     </div>
   );
