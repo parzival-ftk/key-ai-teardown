@@ -11,6 +11,9 @@ import {
   useClientSnapshot,
   useIsHydrated,
 } from "@/lib/hooks/client-snapshot";
+import { DAG_NODE_IDS } from "@/lib/orchestration/dagConfig";
+import { useDagState } from "@/lib/orchestration/use-dag-state";
+import { DAGTopologyView } from "./dag/DAGTopologyView";
 
 type AgentStatus = "running" | "done" | "error";
 
@@ -85,6 +88,9 @@ export function AnalyzeView({ id }: { id: string }) {
   const [agents, setAgents] = useState<AgentState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
+  // W13：DAG 拓扑视图的状态（与流式文本视图同源，都是同一串 SSE 事件驱动）
+  const { state: dagState, apply: applyDag } = useDagState(DAG_NODE_IDS);
+  const [view, setView] = useState<"stream" | "dag">("stream");
   // 按 id 记忆「已启动」：reactStrictMode 下 effect 会双跑，
   // 用它避免重复发起 LLM 请求（每次都是真金白银的调用）。
   // 注意：此处刻意不在 cleanup 里 abort —— 否则 StrictMode 会取消掉唯一那次真实请求。
@@ -180,6 +186,8 @@ export function AnalyzeView({ id }: { id: string }) {
           setFinished(true);
           break;
       }
+      // W13：同一事件同时喂给拓扑视图（纯 reducer，见 lib/orchestration/dag-state）
+      applyDag(event);
       setAgents([...current]);
     };
 
@@ -212,7 +220,7 @@ export function AnalyzeView({ id }: { id: string }) {
     })().catch((err) => {
       setError(err instanceof Error ? err.message : "未知错误");
     });
-  }, [id, brief]);
+  }, [id, brief, applyDag]);
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 p-8">
@@ -231,7 +239,44 @@ export function AnalyzeView({ id }: { id: string }) {
         </div>
       )}
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="分析视图切换">
+        {(
+          [
+            { key: "stream", label: "流式文本视图" },
+            { key: "dag", label: "DAG 拓扑视图" },
+          ] as const
+        ).map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            onClick={() => setView(opt.key)}
+            aria-pressed={view === opt.key}
+            data-view-toggle={opt.key}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              view === opt.key
+                ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-black"
+                : "border-gray-300 text-gray-600 hover:border-gray-500 dark:border-gray-700 dark:text-gray-300"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {view === "dag" && (
+        <DAGTopologyView
+          state={dagState}
+          briefName={brief?.name}
+          briefDescription={brief?.description}
+          now={Date.now()}
+        />
+      )}
+
+      <div
+        className={
+          view === "stream" ? "flex flex-col gap-4" : "hidden"
+        }
+      >
         {agents.map((agent, i) => (
           <section
             key={agent.agentId}
@@ -262,7 +307,7 @@ export function AnalyzeView({ id }: { id: string }) {
         ))}
       </div>
 
-      {agents.length === 0 && !errorText && (
+      {agents.length === 0 && !errorText && view === "stream" && (
         <p className="text-sm text-gray-400">正在连接分析服务…</p>
       )}
 

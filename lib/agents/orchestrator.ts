@@ -2,6 +2,7 @@ import type { Agent, AgentContext, AgentResult } from "@/lib/types/agent";
 import type { ProductBrief } from "@/lib/types/brief";
 import type { AgentEvent } from "@/lib/types/events";
 import type { LLMProvider } from "@/lib/llm/provider";
+import { resolveDependencies } from "./dag";
 
 /**
  * 编排层 —— 按依赖图调度 Agent，把过程实时转为事件流。
@@ -28,34 +29,7 @@ export interface OrchestratorOptions {
   signal?: AbortSignal;
 }
 
-/** 解析每个 Agent 的依赖 id 列表（显式声明优先，否则回退到旧语义） */
-function resolveDependencies(
-  agents: Agent[],
-  parallelIds: Set<string>,
-): Map<string, string[]> {
-  const knownIds = new Set(agents.map((a) => a.id));
-  const dependencies = new Map<string, string[]>();
-
-  for (const [index, agent] of agents.entries()) {
-    let deps: string[];
-    if (agent.dependsOn) {
-      const missing = agent.dependsOn.filter((id) => !knownIds.has(id));
-      if (missing.length > 0) {
-        // fail-closed：依赖不存在的 Agent 是配置错误，静默忽略会掩盖 bug
-        throw new Error(
-          `Agent「${agent.id}」依赖了不存在的 Agent：${missing.join(", ")}`,
-        );
-      }
-      deps = agent.dependsOn;
-    } else if (parallelIds.has(agent.id)) {
-      deps = [];
-    } else {
-      deps = agents.slice(0, index).map((a) => a.id);
-    }
-    dependencies.set(agent.id, deps);
-  }
-  return dependencies;
-}
+/** 解析每个 Agent 的依赖 id 列表 —— 实现见 lib/agents/dag.ts（与 DAG 拓扑配置共用一份规则） */
 
 export async function runAnalysis(
   brief: ProductBrief,
