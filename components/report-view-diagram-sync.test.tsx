@@ -92,6 +92,27 @@ describe("报告页：图谱编辑与 PRD 双向同步（W19）", () => {
   const $ = (sel: string) => container.querySelector(sel) as HTMLElement;
   const source = () => $("[data-mermaid-source]").textContent ?? "";
 
+  /**
+   * 有界等待断言成立。
+   * 该文件的断言跨越「子组件 → 父组件 → 子组件重渲染」的链路，在全量并行跑时
+   * 偶发被调度抖动拖慢（单文件 10/10 通过、全量并行偶发一次）。轮询到条件成立即返回；
+   * 若行为真的坏了，仍会在超时后抛出原始断言错误 —— 不掩盖缺陷。
+   */
+  const waitFor = async (assert: () => void, timeoutMs = 2000) => {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        assert();
+        return;
+      } catch (err) {
+        if (Date.now() > deadline) throw err;
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        });
+      }
+    }
+  };
+
   const setSource = async (value: string) => {
     const el = $("[data-editor-source]") as HTMLTextAreaElement;
     const setter = Object.getOwnPropertyDescriptor(
@@ -122,7 +143,7 @@ describe("报告页：图谱编辑与 PRD 双向同步（W19）", () => {
     await act(async () => $('[data-editor-action="apply"]').click());
 
     // 1) 图谱渲染源已更新
-    expect(source()).toContain(NEW_FLOW);
+    await waitFor(() => expect(source()).toContain(NEW_FLOW));
     // 2) PRD 正文的追溯锚点未被破坏
     expect(container.querySelector('[data-prd-ref="C1"]')).not.toBeNull();
     expect(container.querySelector('[data-prd-ref="C2"]')).not.toBeNull();
@@ -162,14 +183,16 @@ describe("报告页：图谱编辑与 PRD 双向同步（W19）", () => {
     await act(async () => $('[data-mermaid-action="edit"]').click());
     await setSource(NEW_FLOW);
     await act(async () => $('[data-editor-action="apply"]').click());
-    expect(source()).toContain(NEW_FLOW);
+    await waitFor(() => expect(source()).toContain(NEW_FLOW));
 
     await act(async () => {
       $('[data-editor-action="revert"]').click();
       await Promise.resolve();
     });
-    expect(source()).toContain(ORIGINAL_FLOW);
+    await waitFor(() => expect(source()).toContain(ORIGINAL_FLOW));
     // 「已编辑」标记应随内容回到原稿而消失（它反映的是「与 AI 原稿不同」，不是「曾改过」）
-    expect(container.querySelector("[data-section-edited]")).toBeNull();
+    await waitFor(() =>
+      expect(container.querySelector("[data-section-edited]")).toBeNull(),
+    );
   });
 });
