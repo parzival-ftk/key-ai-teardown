@@ -36,6 +36,8 @@ export const AgentDoneEventSchema = z.object({
   evidence: z.array(EvidenceSchema).optional(),
   /** W15：PRD 声明回应的质疑 id（供报告页做质疑↔PRD 追溯） */
   addressedCriticIds: z.array(z.string()).optional(),
+  /** W16：竞品维度打分（供雷达图） */
+  dimensionScores: z.record(z.string(), z.number()).optional(),
 });
 
 export const ErrorEventSchema = z.object({

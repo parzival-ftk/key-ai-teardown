@@ -100,6 +100,9 @@ function namespaceEmit(
           output: event.output,
           confidence: event.confidence,
           evidence: event.evidence,
+          // W15/W16 新增字段必须一并透传，否则命名空间化会把它们吃掉
+          addressedCriticIds: event.addressedCriticIds,
+          dimensionScores: event.dimensionScores,
         });
         break;
       case "error":

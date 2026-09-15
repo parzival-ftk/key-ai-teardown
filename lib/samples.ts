@@ -18,6 +18,8 @@ export interface SampleReportSection {
   evidence: Evidence[];
   /** W15：PRD 声明回应的质疑 id（样例为示意值） */
   addressedCriticIds?: string[];
+  /** W16：竞品维度打分（样例为示意值） */
+  dimensionScores?: Record<string, number>;
 }
 
 export interface SampleReport {
@@ -33,6 +35,15 @@ const SECTIONS: SampleReportSection[] = [
     name: "竞品分析师",
     status: "done",
     confidence: 72,
+    // W16：维度打分（样例示意值）——供报告页的雷达图
+    dimensionScores: {
+      ux: 88,
+      monetization: 74,
+      tech_barrier: 82,
+      jtbd_fit: 86,
+      growth: 70,
+      risk: 58,
+    },
     evidence: [
       {
         claim: "Notion 提供文档、数据库与看板三类核心能力",
@@ -376,6 +387,8 @@ export const SAMPLE_REPORT: SampleReport = {
  */
 export interface SampleComparison {
   products: string[];
+  /** W16：每个产品的维度打分（与 products 同序）——供对比页雷达图 */
+  dimensionScores?: Array<Record<string, number>>;
   comparison: {
     output: string;
     confidence?: number;
@@ -385,6 +398,12 @@ export interface SampleComparison {
 
 export const SAMPLE_COMPARISON: SampleComparison = {
   products: ["Notion", "Figma", "Duolingo"],
+  // W16：三产品维度打分（样例示意值）——雷达图三个系列
+  dimensionScores: [
+    { ux: 88, monetization: 74, tech_barrier: 82, jtbd_fit: 86, growth: 70, risk: 58 },
+    { ux: 94, monetization: 80, tech_barrier: 68, jtbd_fit: 90, growth: 84, risk: 66 },
+    { ux: 80, monetization: 62, tech_barrier: 42, jtbd_fit: 72, growth: 95, risk: 54 },
+  ],
   comparison: {
     confidence: 66,
     evidence: [

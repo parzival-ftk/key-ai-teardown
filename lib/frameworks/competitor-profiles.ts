@@ -17,6 +17,14 @@ export const competitorProfiles: FrameworkTemplate = {
 
 最后给一句话结论：**最需要警惕的竞品是哪一个，为什么**。
 
+**三、维度打分（W16 · 雷达图数据源）**：给**本产品**在 6 个维度上打分（0-100，整数），
+维度 id 固定为：ux（UI/UX）、monetization（商业化潜力）、tech_barrier（技术门槛）、
+jtbd_fit（JTBD 匹配度）、growth（增长动能）、risk（抗风险能力）。
+打分要能自圆其说：拿不准的维度给 50 附近并在正文里说明「（推测）」，
+**不要为了好看一律给高分**。
+把结果写进末尾 JSON 元数据的 dimension_scores 字段，形如
+「dimension_scores」: {"ux": 0, "monetization": 0, "tech_barrier": 0, "jtbd_fit": 0, "growth": 0, "risk": 0}。
+
 ${OUTPUT_RULES}`,
   userPrompt: (brief) => `请做竞品发现与威胁等级评估：\n${renderBrief(brief)}`,
 };

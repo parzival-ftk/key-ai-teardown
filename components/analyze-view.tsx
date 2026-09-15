@@ -26,6 +26,8 @@ interface AgentState {
   evidence: Evidence[];
   /** W15：PRD 声明回应的质疑 id（供报告页做质疑↔PRD 追溯） */
   addressedCriticIds?: string[];
+  /** W16：竞品维度打分（供雷达图） */
+  dimensionScores?: Record<string, number>;
 }
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
@@ -163,6 +165,7 @@ export function AnalyzeView({ id }: { id: string }) {
             a.confidence = event.confidence;
             a.evidence = event.evidence ?? [];
             a.addressedCriticIds = event.addressedCriticIds;
+            a.dimensionScores = event.dimensionScores;
           }
           break;
         }

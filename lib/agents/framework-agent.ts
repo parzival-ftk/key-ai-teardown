@@ -71,7 +71,7 @@ export function createFrameworkAgent({
         { role: "user", content: userContent },
       ];
 
-      const { text, confidence, evidence, addressedCriticIds } =
+      const { text, confidence, evidence, addressedCriticIds, dimensionScores } =
         await runCompletionStream({
           provider: ctx.provider,
           messages,
@@ -89,6 +89,9 @@ export function createFrameworkAgent({
         // W15：PRD 声明回应的质疑 id（其它 Agent 为空数组 → 不写入）
         addressedCriticIds:
           addressedCriticIds.length > 0 ? addressedCriticIds : undefined,
+        // W16：竞品维度打分（其它 Agent 为空对象 → 不写入）
+        dimensionScores:
+          Object.keys(dimensionScores).length > 0 ? dimensionScores : undefined,
         failed: false,
       };
     },

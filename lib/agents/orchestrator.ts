@@ -59,6 +59,9 @@ export async function runAnalysis(
         addressedCriticIds: result.addressedCriticIds?.length
           ? result.addressedCriticIds
           : undefined,
+        dimensionScores: result.dimensionScores
+          ? result.dimensionScores
+          : undefined,
       });
       return result;
     } catch (err) {

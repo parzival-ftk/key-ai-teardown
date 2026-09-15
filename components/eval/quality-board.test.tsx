@@ -75,14 +75,17 @@ describe("QualityBoard（服务端静态渲染）", () => {
     expect(html).toContain("未达标");
   });
 
-  it("伪造引用：追溯度标记「已降级」并给 critical 建议", () => {
+  it("伪造引用：由红队防幻觉拦截并强制降级（W16 起，拦截先于评分）", () => {
     const html = renderToStaticMarkup(
       <QualityBoard
         report={report({}, [{ claim: "A", label: "verified" }])}
         defaultOpen
       />,
     );
-    expect(html).toContain("已降级");
-    expect(html).toContain("伪造引用");
+    // 红队先把它降级，评分随之按降级后的证据计算（维度层的伪造检测在
+    // lib/eval/judgeAgent.test.ts 单独覆盖）
+    expect(html).toContain('data-red-team-blocked="1"');
+    expect(html).toContain("虚构引用");
+    expect(html).toContain("verified → inferred");
   });
 });

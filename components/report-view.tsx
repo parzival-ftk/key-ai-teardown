@@ -13,6 +13,11 @@ import { EvidenceList } from "./evidence-list";
 import { QualityBoard } from "./eval/QualityBoard";
 import { MermaidViewer } from "./diagram/MermaidViewer";
 import { CriticList, PrdText } from "./traceable-text";
+import { RadarChart, type RadarSeries } from "./comparison/RadarChart";
+import {
+  hasEnoughDimensions,
+  normalizeDimensionScores,
+} from "@/lib/report/radar-dimensions";
 import {
   extractMermaidBlocks,
   isSupportedDiagram,
@@ -41,6 +46,8 @@ export interface ReportSection {
   evidence?: Evidence[];
   /** W15：PRD 声明回应的质疑 id（旧报告可能缺省） */
   addressedCriticIds?: string[];
+  /** W16：竞品维度打分（旧报告可能缺省） */
+  dimensionScores?: Record<string, number>;
 }
 
 export interface ReportData {
@@ -272,6 +279,22 @@ export function ReportView({
         const htmlBlock = codeBlocks.find((b) => b.lang === "html");
         const isCriticSection = section.agentId === "devils-advocate";
         const isPrdSection = section.agentId === "prd";
+        // W16：该段若带维度打分（竞品分析师产出），渲染单系列雷达图
+        const sectionScores = normalizeDimensionScores(
+          sectionData?.dimensionScores,
+        );
+        const radarSeries: RadarSeries[] | null = hasEnoughDimensions(
+          sectionScores,
+        )
+          ? [
+              {
+                id: section.agentId,
+                label: sectionData?.name ?? section.title,
+                color: "#2563eb",
+                scores: sectionScores,
+              },
+            ]
+          : null;
         return (
           <section
             key={section.key}
@@ -323,6 +346,14 @@ export function ReportView({
             ))}
             <CodePanel blocks={panelBlocks} />
             {htmlBlock ? <CodePreview html={htmlBlock.code} /> : null}
+            {/* W16：该段带维度打分时渲染雷达图（竞品分析师 / 对比官产出） */}
+            {radarSeries ? (
+              <RadarChart
+                series={radarSeries}
+                size={300}
+                defaultHidden={[]}
+              />
+            ) : null}
             {/* 证据与正文独立渲染：正文为空但有证据时不应被连带丢弃（审查修复） */}
             <EvidenceList evidence={sectionData?.evidence ?? []} />
           </section>

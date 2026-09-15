@@ -20,6 +20,8 @@ const MetadataSchema = z.object({
   evidence: z.array(EvidenceSchema).optional(),
   /** W15：PRD 声明自己回应了哪些质疑（见 lib/report/traceability） */
   addressed_critic_ids: z.array(z.string()).optional(),
+  /** W16：竞品维度打分（见 lib/report/radar-dimensions），键为维度 id、值 0-100 */
+  dimension_scores: z.record(z.string(), z.number()).optional(),
 });
 
 export interface ParsedOutput {
@@ -29,6 +31,8 @@ export interface ParsedOutput {
   evidence: Evidence[];
   /** W15：PRD 已回应的质疑 id（其它 Agent 为空数组） */
   addressedCriticIds: string[];
+  /** W16：竞品维度打分（模型自评；其它 Agent 为空对象） */
+  dimensionScores: Record<string, number>;
 }
 
 /** 结尾代码块：1-3 个反引号 + json，内容非贪婪，尾部同样 1-3 个反引号 */
@@ -38,6 +42,7 @@ type Metadata = {
   confidence?: number;
   evidence: Evidence[];
   addressedCriticIds: string[];
+  dimensionScores: Record<string, number>;
 };
 
 function tryParseMetadata(candidate: string): Metadata | null {
@@ -53,6 +58,7 @@ function tryParseMetadata(candidate: string): Metadata | null {
     confidence: parsed.data.confidence,
     evidence: parsed.data.evidence ?? [],
     addressedCriticIds: parsed.data.addressed_critic_ids ?? [],
+    dimensionScores: parsed.data.dimension_scores ?? {},
   };
 }
 
@@ -71,7 +77,11 @@ function extractTrailingJsonObject(
       depth--;
       if (depth === 0) {
         const json = text.slice(i, end + 1);
-        if (/"confidence"|"evidence"|"addressed_critic_ids"/.test(json)) {
+        if (
+          /"confidence"|"evidence"|"addressed_critic_ids"|"dimension_scores"/.test(
+            json,
+          )
+        ) {
           return { index: i, json };
         }
         return null;
@@ -94,6 +104,7 @@ export function parseStructuredOutput(raw: string): ParsedOutput {
         confidence: meta.confidence,
         evidence: meta.evidence,
         addressedCriticIds: meta.addressedCriticIds,
+        dimensionScores: meta.dimensionScores,
       };
     }
   }
@@ -108,12 +119,18 @@ export function parseStructuredOutput(raw: string): ParsedOutput {
         confidence: meta.confidence,
         evidence: meta.evidence,
         addressedCriticIds: meta.addressedCriticIds,
+        dimensionScores: meta.dimensionScores,
       };
     }
   }
 
   // 3) 降级为纯文本
-  return { text: trimmed, evidence: [], addressedCriticIds: [] };
+  return {
+    text: trimmed,
+    evidence: [],
+    addressedCriticIds: [],
+    dimensionScores: {},
+  };
 }
 
 /** 供流式剥离使用：定位元数据区起点（返回 -1 表示尚未出现） */
@@ -121,7 +138,10 @@ export function findMetadataStart(text: string): number {
   const fence = /`{1,3}json/i.exec(text);
   if (fence && fence.index !== undefined) return fence.index;
 
-  const bare = /[{[,]\s*"(confidence|evidence|addressed_critic_ids)"\s*:/.exec(text);
+  const bare =
+    /[{[,]\s*"(confidence|evidence|addressed_critic_ids|dimension_scores)"\s*:/.exec(
+      text,
+    );
   return bare && bare.index !== undefined ? bare.index : -1;
 }
 

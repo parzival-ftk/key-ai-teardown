@@ -6,7 +6,9 @@ import {
   type EvaluableReport,
   type EvaluationSuggestion,
 } from "@/lib/eval/judgeAgent";
+import { runRedTeam, sanitizeReport } from "@/lib/eval/redTeaming";
 import { DEFAULT_GATE_THRESHOLD } from "@/lib/eval/dimensions";
+import { RedTeamingBadge } from "./RedTeamingBadge";
 
 /**
  * 质量与可信度评估看板（W14）。
@@ -69,9 +71,12 @@ export function QualityBoard({
   defaultOpen = false,
   threshold = DEFAULT_GATE_THRESHOLD,
 }: QualityBoardProps) {
+  // W16：先过红队防幻觉，再对**降级后**的报告评分 ——
+  // 让拦截真正影响分数，而不是只挂个好看的徽章（被降级的「已核实」不再计入追溯度）。
+  const redTeam = useMemo(() => runRedTeam(report), [report]);
   const evaluation = useMemo(
-    () => scoreEvaluation(report, { threshold }),
-    [report, threshold],
+    () => scoreEvaluation(sanitizeReport(report, redTeam), { threshold }),
+    [report, redTeam, threshold],
   );
   const [open, setOpen] = useState(defaultOpen);
   const tone = toneOf(evaluation.composite);
@@ -103,6 +108,15 @@ export function QualityBoard({
         <span className="hidden truncate text-xs text-gray-500 sm:inline dark:text-gray-400">
           {primaryHighlight}
         </span>
+        {/* 收起时也不能藏住真实拦截 */}
+        {redTeam.blockedCount > 0 && !open && (
+          <span
+            data-red-team-compact
+            className="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-950 dark:text-red-300"
+          >
+            红队拦截 {redTeam.blockedCount} 条
+          </span>
+        )}
         <span className="ml-auto shrink-0 text-xs text-gray-400">
           {open ? "收起 ▲" : "展开 ▼"}
         </span>
@@ -114,6 +128,8 @@ export function QualityBoard({
             启发式评分（不消耗模型调用）· 门禁阈值 {threshold} 分 ·{" "}
             {evaluation.gate.passed ? "已达标" : "未达标"}
           </p>
+
+          <RedTeamingBadge report={redTeam} defaultOpen />
 
           <ul className="flex flex-col gap-2.5">
             {evaluation.dimensions.map((dim) => {
