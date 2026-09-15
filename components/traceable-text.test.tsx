@@ -58,6 +58,61 @@ describe("PrdText（服务端渲染）", () => {
     expect(html).toContain('data-prd-ref="C2"');
     expect(html).toContain("一键模板开始");
   });
+
+  it("同一条质疑被引用多次时，DOM id 只挂一次（回归：重复 id 是非法 HTML）", () => {
+    const html = renderToStaticMarkup(
+      <PrdText
+        text={"先引用 [C1]，稍后再次 [C1]，最后 [C2]"}
+        onJump={() => {}}
+        pulseTarget={null}
+      />,
+    );
+    expect((html.match(/id="prd-ref-c1"/g) ?? []).length).toBe(1);
+    expect((html.match(/data-prd-ref="C1"/g) ?? []).length).toBe(2);
+    expect((html.match(/data-prd-anchor="false"/g) ?? []).length).toBe(1);
+  });
+});
+
+describe("CriticList 的降级可见性（回归：编号门控不得静默失效）", () => {
+  it("模型没按 C1. 编号输出时给出显式告警", () => {
+    const legacy = "1. 旧格式质疑\n2. 另一条质疑";
+    const html = renderToStaticMarkup(
+      <CriticList
+        text={legacy}
+        traceability={buildTraceability(legacy, "PRD 没有标记")}
+        onJump={() => {}}
+        pulseTarget={null}
+      />,
+    );
+    expect(html).toContain("data-critic-warning");
+    expect(html).toContain("未识别到编号质疑");
+  });
+
+  it("元数据声明已回应但正文无锚点时，跳转按钮标注为非精确（不再静默落空）", () => {
+    const metadataOnly = renderToStaticMarkup(
+      <CriticList
+        text={CRITIC}
+        traceability={buildTraceability(CRITIC, "PRD 正文没有标记", ["C1"])}
+        onJump={() => {}}
+        pulseTarget={null}
+      />,
+    );
+    // 正文无 [Cn] → 所有跳转都非精确（由父组件回退到 PRD 段落锚点）
+    expect((metadataOnly.match(/data-critic-jump-precise="true"/g) ?? []).length).toBe(0);
+    expect((metadataOnly.match(/data-critic-jump-precise="false"/g) ?? []).length).toBe(3);
+
+    const withAnchors = renderToStaticMarkup(
+      <CriticList
+        text={CRITIC}
+        traceability={buildTraceability(CRITIC, PRD)}
+        onJump={() => {}}
+        pulseTarget={null}
+      />,
+    );
+    // C1/C2 在正文有标记 → 精确；C3 无 → 非精确
+    expect((withAnchors.match(/data-critic-jump-precise="true"/g) ?? []).length).toBe(2);
+    expect((withAnchors.match(/data-critic-jump-precise="false"/g) ?? []).length).toBe(1);
+  });
 });
 
 describe("跳转触发（真实 DOM 点击 → onJump 收到对侧锚点）", () => {

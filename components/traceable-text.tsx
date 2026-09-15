@@ -47,7 +47,7 @@ export function CriticList({
 
   return (
     <div data-critic-list className="flex flex-col gap-1.5">
-      {traceability.total > 0 && (
+      {traceability.total > 0 ? (
         <p
           data-trace-summary
           className="rounded-lg bg-gray-50 px-2 py-1 text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400"
@@ -57,6 +57,17 @@ export function CriticList({
             ? ` · 未回应 ${traceability.unaddressed.join("、")}`
             : " · 全部已回应"}
         </p>
+      ) : (
+        // 评审发现：模型不按「C1.」行首编号输出时，追溯会整体失效且此前**静默无提示**。
+        // 这里显式告警，把「解析不到」与「没有质疑」区分开。
+        text.trim() !== "" && (
+          <p
+            data-critic-warning
+            className="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+          >
+            未识别到编号质疑（需以「C1.」形式开头）—— 本次无法建立「质疑 → PRD」追溯链，请检查该段产出格式。
+          </p>
+        )
       )}
       {lines.map((line, index) => {
         const match = CRITIC_LINE.exec(line);
@@ -73,7 +84,11 @@ export function CriticList({
 
         const criticId = match[1].toUpperCase();
         const domId = criticAnchorId(criticId);
-        const addressed = linkById.get(criticId)?.addressed ?? false;
+        const link = linkById.get(criticId);
+        const addressed = link?.addressed ?? false;
+        // 评审发现：元数据声明「已回应」但正文没有 [Cn] 标记时，精确锚点不存在，
+        // 跳转会静默落空。这里显式区分，交给父组件回退到 PRD 段落。
+        const hasPrdAnchor = (link?.references.length ?? 0) > 0;
 
         return (
           <div
@@ -93,8 +108,15 @@ export function CriticList({
             <button
               type="button"
               data-critic-jump={criticId}
+              data-critic-jump-precise={hasPrdAnchor ? "true" : "false"}
               onClick={() => onJump(prdAnchorId(criticId))}
-              title={addressed ? "跳到 PRD 中回应它的位置" : "PRD 尚未回应"}
+              title={
+                hasPrdAnchor
+                  ? "跳到 PRD 中回应它的位置"
+                  : addressed
+                    ? "PRD 元数据声明已回应，但正文未标 [Cn] —— 将跳到 PRD 段落"
+                    : "PRD 尚未回应"
+              }
               className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px] transition ${
                 addressed
                   ? "bg-green-600 text-white hover:bg-green-700"
@@ -136,6 +158,9 @@ export function PrdText({
 }: { text: string } & TraceableTextProps) {
   const parts: ReactNode[] = [];
   let cursor = 0;
+  // 同一条质疑可能在多处被引用（如样例里的 [C1] 出现两次）。
+  // DOM id 只能挂一次（重复 id 是非法 HTML，且 getElementById 只返回首个），故只给首个引用挂锚点。
+  const anchored = new Set<string>();
 
   for (const match of text.matchAll(PRD_REFERENCE)) {
     const index = match.index ?? 0;
@@ -143,12 +168,16 @@ export function PrdText({
 
     const criticId = match[1].toUpperCase();
     const domId = prdAnchorId(criticId);
+    const isAnchor = !anchored.has(criticId);
+    if (isAnchor) anchored.add(criticId);
+
     parts.push(
       <button
         key={`${criticId}-${index}`}
         type="button"
-        id={domId}
+        id={isAnchor ? domId : undefined}
         data-prd-ref={criticId}
+        data-prd-anchor={isAnchor ? "true" : "false"}
         onClick={() => onJump(criticAnchorId(criticId))}
         title={`跳回质疑 ${criticId}`}
         className={`mx-0.5 rounded px-1 py-0.5 align-baseline font-mono text-[11px] transition ${pulseClass(

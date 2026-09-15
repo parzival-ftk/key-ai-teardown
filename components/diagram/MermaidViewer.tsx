@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { renderMermaidSvg } from "@/lib/diagram/render-mermaid";
+import { useEffect, useId, useRef, useState } from "react";
+import { renderMermaidSvg, type MermaidRenderer } from "@/lib/diagram/render-mermaid";
 import type { MermaidDiagramKind } from "@/lib/diagram/mermaid-blocks";
 
 /**
@@ -58,36 +58,55 @@ export function MermaidErrorFallback({
   );
 }
 
+/**
+ * 生成 mermaid 渲染用的元素 id。
+ *
+ * 必须是**跨实例唯一**：mermaid.render(id) 会创建同名临时元素、并在产出的 SVG 里嵌入
+ * `#id{…}` 样式；两个实例用同一个 id 会同时造成「重复 DOM id」与「样式互相覆盖」。
+ * 该 bug 曾真实存在（每实例私有 useRef 首值都是 1），故把 id 生成抽成纯函数便于回归测试。
+ */
+export function buildMermaidElementId(
+  instanceKey: string,
+  seq: number,
+): string {
+  const safe = instanceKey.replace(/[^a-zA-Z0-9]/g, "");
+  return `mermaid-${safe}-${seq}`;
+}
+
 export interface MermaidViewerProps {
   /** mermaid 源码（不含围栏） */
   code: string;
   title?: string;
   kind?: MermaidDiagramKind;
+  /** 渲染器注入点（测试用）；缺省走 lib/diagram/render-mermaid 的动态 import 实现 */
+  renderer?: MermaidRenderer;
 }
 
 export function MermaidViewer({
   code,
   title,
   kind = "flowchart",
+  renderer,
 }: MermaidViewerProps) {
   const [result, setResult] = useState<RenderResult | null>(null);
   const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const instanceKey = useId();
   const seq = useRef(0);
 
   useEffect(() => {
     seq.current += 1;
-    const id = `mermaid-svg-${seq.current}`;
+    const id = buildMermaidElementId(instanceKey, seq.current);
     let cancelled = false;
     void (async () => {
-      const outcome = await renderMermaidSvg(code, id);
+      const outcome = await renderMermaidSvg(code, id, renderer);
       if (!cancelled) setResult({ code, ...outcome });
     })();
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [code, instanceKey, renderer]);
 
   // 派生状态：result 还没回来、或它对应的不是当前 code，就是「渲染中」
   const status: MermaidStatus =

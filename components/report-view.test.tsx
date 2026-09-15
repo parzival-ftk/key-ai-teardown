@@ -156,4 +156,23 @@ describe("报告页 W15：Mermaid 图谱与质疑↔PRD 追溯", () => {
     expect(html).toContain('id="prd-ref-c1"');
     expect(html).toContain('data-prd-ref="C2"');
   });
+
+  it("不支持的 mermaid 图形类型降级为可复制代码块（不交给图谱渲染器）", () => {
+    const html = render({
+      name: "X",
+      sections: [
+        {
+          agentId: "prd",
+          name: "PRD 撰写官",
+          status: "done",
+          output: "说明\n```mermaid\nsequenceDiagram\n  A->>B: hi\n```",
+        },
+      ],
+    });
+    expect(html).not.toContain("data-mermaid-viewer");
+    expect(html).toContain("说明");
+    // 降级为代码面板（含复制按钮）
+    expect(html).toContain("复制");
+    expect(html).toContain("sequenceDiagram");
+  });
 });

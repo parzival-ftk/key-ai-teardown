@@ -15,13 +15,15 @@ import { MermaidViewer } from "./diagram/MermaidViewer";
 import { CriticList, PrdText } from "./traceable-text";
 import {
   extractMermaidBlocks,
+  isSupportedDiagram,
+  stripMermaidBlocks,
 } from "@/lib/diagram/mermaid-blocks";
 import {
   buildTraceability,
 } from "@/lib/report/traceability";
 import { CodePanel } from "./code-panel";
 import { CodePreview } from "./code-preview";
-import { extractCodeBlocks, stripCodeBlocks } from "@/lib/report/code-blocks";
+import { extractCodeBlocks, stripCodeBlocks, type CodeBlock } from "@/lib/report/code-blocks";
 
 /**
  * 分段式报告（借鉴 ArdaGoksuGuner/Competitor-Analysis，见设计规格 E1）。
@@ -163,15 +165,19 @@ export function ReportView({
 
   /**
    * W15：跳到指定锚点并触发脉冲高亮（质疑 ↔ PRD 双向）。
-   * 用 getElementById + scrollIntoView，避免为跨两段的跳转维护 ref 图。
+   * 精确锚点不存在时**回退到段落锚点**（评审发现：原先 `getElementById(...)?.` 会静默落空——
+   * 当「已回应」只由元数据声明、正文没写 [Cn] 时，PRD 里根本没有该锚点）。
    */
   function jumpTo(domId: string) {
-    setPulseTarget(domId);
-    document
-      .getElementById(domId)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const target =
+      document.getElementById(domId) ??
+      (domId.startsWith("prd-ref-")
+        ? document.getElementById("section-prd")
+        : null);
+    setPulseTarget(target ? target.id : null);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
     window.setTimeout(() => {
-      setPulseTarget((current) => (current === domId ? null : current));
+      setPulseTarget((current) => (current === target?.id ? null : current));
     }, 1600);
   }
 
@@ -245,19 +251,34 @@ export function ReportView({
       {REPORT_SECTIONS.map((section, i) => {
         const sectionData = byAgent(section.agentId);
         const raw = sectionData?.output ?? "";
-        // W6：代码围栏剥出来单独用可复制面板展示；W15：mermaid 围栏剥出来交给图谱渲染器
-        // （extractCodeBlocks 会把 mermaid 围栏也一并匹配，这里显式排除，避免同一段被渲染两次）
-        const codeBlocks = raw
-          ? extractCodeBlocks(raw).filter((b) => b.lang !== "mermaid")
-          : [];
+        // W15：先把 mermaid 围栏单独取出（含不支持的图形类型），再交给代码围栏逻辑 ——
+        // 抽走 mermaid 后，extractCodeBlocks 不会再把它们误当普通代码块。
         const mermaidBlocks = raw ? extractMermaidBlocks(raw) : [];
-        const content = raw ? stripCodeBlocks(raw) : "";
+        const withoutMermaid = raw ? stripMermaidBlocks(raw) : "";
+        const codeBlocks = withoutMermaid ? extractCodeBlocks(withoutMermaid) : [];
+        const content = withoutMermaid ? stripCodeBlocks(withoutMermaid) : "";
+        // 只把受支持的图形（flowchart / state）交给渲染器；其余类型降级为可复制的代码块，
+        // 避免渲染器拿到自己不认识的语法后只能报错。
+        const renderableDiagrams = mermaidBlocks.filter((b) =>
+          isSupportedDiagram(b.kind),
+        );
+        const fallbackDiagrams = mermaidBlocks.filter(
+          (b) => !isSupportedDiagram(b.kind),
+        );
+        const panelBlocks: CodeBlock[] = [
+          ...codeBlocks,
+          ...fallbackDiagrams.map((b) => ({ lang: "mermaid", code: b.code })),
+        ];
+        const htmlBlock = codeBlocks.find((b) => b.lang === "html");
         const isCriticSection = section.agentId === "devils-advocate";
         const isPrdSection = section.agentId === "prd";
         return (
           <section
             key={section.key}
-            className="key-fade-in-up rounded-xl border border-gray-200 p-5 dark:border-gray-800"
+            id={`section-${section.agentId}`}
+            className={`key-fade-in-up rounded-xl border border-gray-200 p-5 dark:border-gray-800 ${
+              pulseTarget === `section-${section.agentId}` ? "key-pulse" : ""
+            }`}
             style={{ animationDelay: `${Math.min(i, 10) * 60}ms` }}
           >
             <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
@@ -286,13 +307,13 @@ export function ReportView({
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                 {content}
               </p>
-            ) : codeBlocks.length === 0 && mermaidBlocks.length === 0 ? (
+            ) : panelBlocks.length === 0 ? (
               <p className="text-sm text-gray-400">
                 待补充 —— 由「{section.owner}」负责。
               </p>
             ) : null}
             {/* W15：Mermaid 图谱（flowchart / stateDiagram）逐个渲染 */}
-            {mermaidBlocks.map((block) => (
+            {renderableDiagrams.map((block) => (
               <MermaidViewer
                 key={`mermaid-${block.index}`}
                 code={block.code}
@@ -300,8 +321,8 @@ export function ReportView({
                 title={`${section.title} · ${block.kind === "state" ? "状态图" : "流程图"}`}
               />
             ))}
-            <CodePanel blocks={codeBlocks} />
-            {codeBlocks[0] ? <CodePreview html={codeBlocks[0].code} /> : null}
+            <CodePanel blocks={panelBlocks} />
+            {htmlBlock ? <CodePreview html={htmlBlock.code} /> : null}
             {/* 证据与正文独立渲染：正文为空但有证据时不应被连带丢弃（审查修复） */}
             <EvidenceList evidence={sectionData?.evidence ?? []} />
           </section>
