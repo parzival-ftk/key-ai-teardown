@@ -1,6 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  sanitizeMermaidSyntax,
+  type SanitizeResult,
+} from "@/lib/diagram/syntax-sanitizer";
+import {
+  changeDiagramDirection,
+  detectDiagramDirection,
+  type DiagramDirection,
+} from "@/lib/diagram/layout-optimizer";
 
 /**
  * 截图识别 Modal（W26）—— 把一张架构图截图变成 mermaid 代码。
@@ -67,6 +76,10 @@ export function VisionDiagramModal({
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<VisionParseResponse | null>(null);
+  /** W27：识别结果经语法修补后的报告（气泡展示修了几处） */
+  const [sanitized, setSanitized] = useState<SanitizeResult | null>(null);
+  /** W27：当前工作副本（自动修补 + 用户方向调整后的代码）——两个出口都用它 */
+  const [workingCode, setWorkingCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +89,8 @@ export function VisionDiagramModal({
       setStatus("loading");
       setError(null);
       setResult(null);
+      setSanitized(null);
+      setWorkingCode(null);
       try {
         const res = await fetch("/api/parse", {
           method: "POST",
@@ -88,7 +103,11 @@ export function VisionDiagramModal({
         });
         if (!res.ok) throw new Error(`识别服务返回 HTTP ${res.status}`);
         const data = (await res.json()) as VisionParseResponse;
+        // W27：识别结果先过一遍语法修补 —— 模型产出的图谱常常「差一点就能渲染」
+        const fix = sanitizeMermaidSyntax(data.code);
         setResult(data);
+        setSanitized(fix);
+        setWorkingCode(fix.fixedCode);
         setStatus("done");
       } catch (err) {
         setError(err instanceof Error ? err.message : "识别失败，请重试");
@@ -144,7 +163,9 @@ export function VisionDiagramModal({
   if (!open) return null;
 
   const degraded = result?.source === "fallback";
-  const canUse = status === "done" && !degraded && Boolean(result?.code?.trim());
+  /** 当前工作代码的布局方向（非 flowchart 时为 null，此时不显示方向切换） */
+  const direction = workingCode ? detectDiagramDirection(workingCode) : null;
+  const canUse = status === "done" && !degraded && Boolean(workingCode?.trim());
 
   const actionButton =
     "rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-500 disabled:opacity-40 dark:border-gray-700 dark:text-gray-200";
@@ -280,11 +301,56 @@ export function VisionDiagramModal({
                 </p>
               )}
 
+              {sanitized?.isFixed && (
+                <div
+                  data-vision-sanitize
+                  className="flex flex-col gap-1 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200"
+                >
+                  <span data-vision-fix-badge className="font-medium">
+                    已自动修复 {sanitized.fixLogs.length} 处语法
+                  </span>
+                  <ul className="list-inside list-disc opacity-90">
+                    {sanitized.fixLogs.map((log) => (
+                      <li key={log}>{log}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {direction && (
+                <div
+                  data-vision-direction-group
+                  className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                >
+                  <span>方向切换 (TD/LR)</span>
+                  {(["TD", "LR"] as DiagramDirection[]).map((dir) => (
+                    <button
+                      key={dir}
+                      type="button"
+                      data-vision-direction={dir}
+                      aria-pressed={direction === dir}
+                      onClick={() =>
+                        setWorkingCode((code) =>
+                          changeDiagramDirection(code ?? "", dir),
+                        )
+                      }
+                      className={`rounded border px-2 py-0.5 transition ${
+                        direction === dir
+                          ? "border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-black"
+                          : "border-gray-300 text-gray-600 hover:border-gray-500 dark:border-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {dir}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <pre
                 data-vision-code
                 className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-[11px] leading-relaxed text-gray-800 dark:border-gray-800 dark:bg-black dark:text-gray-200"
               >
-                {result.code}
+                {workingCode}
               </pre>
             </div>
           )}
@@ -302,7 +368,7 @@ export function VisionDiagramModal({
           <button
             type="button"
             data-vision-action="editor"
-            onClick={() => result && onOpenInEditor?.(result.code)}
+            onClick={() => workingCode && onOpenInEditor?.(workingCode)}
             disabled={!canUse || !onOpenInEditor}
             className={`ml-auto ${actionButton}`}
           >
@@ -311,7 +377,7 @@ export function VisionDiagramModal({
           <button
             type="button"
             data-vision-action="replace"
-            onClick={() => result && onReplace?.(result.code, result)}
+            onClick={() => result && workingCode && onReplace?.(workingCode, result)}
             disabled={!canUse || !onReplace}
             className="rounded-lg bg-black px-4 py-1.5 text-sm font-medium text-white transition disabled:opacity-40 dark:bg-white dark:text-black"
           >

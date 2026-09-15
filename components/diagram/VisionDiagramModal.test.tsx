@@ -251,4 +251,79 @@ describe("VisionDiagramModal 交互（jsdom）", () => {
     expect(container.querySelector("[data-vision-error]")).not.toBeNull();
     expect(replaceBtn().disabled).toBe(true);
   });
+
+  it("W27：畸形代码 → 显示「已自动修复 N 处语法」气泡，代码区为修补结果", async () => {
+    stubFetch({
+      ok: true,
+      code: "Client --> 服务\nGateway -->",
+      diagramType: "unknown",
+      confidenceScore: 0,
+      detectedNodesCount: 0,
+      source: "model",
+    });
+    mount();
+    dispatchDrop(dropzone(), PNG());
+    await flush();
+
+    const badge = container.querySelector("[data-vision-fix-badge]");
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toContain("已自动修复 3 处语法");
+    const code = container.querySelector("[data-vision-code]")?.textContent ?? "";
+    expect(code.startsWith("flowchart TD")).toBe(true);
+    expect(code).toContain("N1[服务]");
+    expect(code.trimEnd().endsWith("-->")).toBe(false);
+  });
+
+  it("W27：干净代码不显示修复气泡", async () => {
+    stubFetch(OK_RESPONSE);
+    mount();
+    dispatchDrop(dropzone(), PNG());
+    await flush();
+    expect(container.querySelector("[data-vision-sanitize]")).toBeNull();
+  });
+
+  it("W27：方向切换 (TD/LR) 改写代码，且出口携带切换后的版本", async () => {
+    stubFetch(OK_RESPONSE);
+    const onReplace = vi.fn();
+    mount({ onReplace });
+    dispatchDrop(dropzone(), PNG());
+    await flush();
+
+    expect(container.querySelector("[data-vision-direction-group]")).not.toBeNull();
+    expect(
+      container
+        .querySelector('[data-vision-direction="TD"]')
+        ?.getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    act(() =>
+      (
+        container.querySelector('[data-vision-direction="LR"]') as HTMLElement
+      ).click(),
+    );
+    expect(container.querySelector("[data-vision-code]")?.textContent).toContain(
+      "flowchart LR",
+    );
+
+    act(() => replaceBtn().click());
+    expect(onReplace.mock.calls[0][0]).toContain("flowchart LR");
+  });
+
+  it("W27：非 flowchart（状态图）不显示方向切换", async () => {
+    stubFetch({
+      ok: true,
+      code: "stateDiagram-v2\n  [*] --> 待处理",
+      diagramType: "stateDiagram-v2",
+      confidenceScore: 80,
+      detectedNodesCount: 1,
+      source: "model",
+    });
+    mount();
+    dispatchDrop(dropzone(), PNG());
+    await flush();
+    expect(container.querySelector("[data-vision-direction-group]")).toBeNull();
+    expect(container.querySelector("[data-vision-code]")?.textContent).toContain(
+      "stateDiagram-v2",
+    );
+  });
 });

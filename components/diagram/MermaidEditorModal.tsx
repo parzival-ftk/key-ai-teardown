@@ -6,6 +6,8 @@ import {
   hasBlockingDiagnostic,
 } from "@/lib/diagram/diagram-lint";
 import { appendNode, appendState, formatDiagram } from "@/lib/diagram/diagram-ops";
+import { sanitizeMermaidSyntax } from "@/lib/diagram/syntax-sanitizer";
+import { optimizeDiagramLayout } from "@/lib/diagram/layout-optimizer";
 import { buildMermaidElementId } from "@/lib/diagram/mermaid-element-id";
 import {
   renderMermaidSvg,
@@ -122,6 +124,8 @@ export function MermaidEditorModal({
   const [initialCode] = useState(code);
   /** 已同步到 PRD 的版本（应用 / 还原后更新），用于判断「未同步」 */
   const [syncedCode, setSyncedCode] = useState(code);
+  /** W27：语法校对的反馈（修了几处 / 无需修补），短暂显示 */
+  const [sanitizeNote, setSanitizeNote] = useState<string | null>(null);
 
   const diagnostics = useMemo(() => diagnoseMermaid(draft), [draft]);
   const blocking = hasBlockingDiagnostic(diagnostics);
@@ -142,6 +146,24 @@ export function MermaidEditorModal({
     setDraft(initialCode);
     setSyncedCode(initialCode);
     onApply(initialCode);
+  }
+
+  /** W27：语法校对 —— 修补畸形源码（补头 / 纠边符号 / 规范化节点 id / 清悬空箭头） */
+  function applySanitize() {
+    const { fixedCode, isFixed, fixLogs } = sanitizeMermaidSyntax(draft);
+    setDraft(fixedCode);
+    setSanitizeNote(
+      isFixed
+        ? `已自动修复 ${fixLogs.length} 处语法：${fixLogs.join("；")}`
+        : "语法已规范，无需修补",
+    );
+    window.setTimeout(() => setSanitizeNote(null), 4000);
+  }
+
+  /** W27：一键整理布局 —— 规范化缩进与箭头间距 */
+  function applyLayout() {
+    setDraft((current) => optimizeDiagramLayout(current));
+    setSanitizeNote(null);
   }
 
   const quickButton =
@@ -215,10 +237,36 @@ export function MermaidEditorModal({
           >
             格式化代码
           </button>
+          {/* W27：语法校对与布局整理 */}
+          <button
+            type="button"
+            data-editor-action="sanitize"
+            onClick={applySanitize}
+            className={quickButton}
+          >
+            语法校对 (Sanitize)
+          </button>
+          <button
+            type="button"
+            data-editor-action="optimize"
+            onClick={applyLayout}
+            className={quickButton}
+          >
+            一键整理布局
+          </button>
           <span className="ml-auto text-[11px] text-gray-400">
             Mermaid 语法 · 修改后需「应用」才会同步到 PRD
           </span>
         </div>
+
+        {sanitizeNote && (
+          <p
+            data-editor-sanitize-note
+            className="border-b border-gray-200 bg-blue-50 px-4 py-1.5 text-[11px] text-blue-800 dark:border-gray-800 dark:bg-blue-950 dark:text-blue-200"
+          >
+            {sanitizeNote}
+          </p>
+        )}
 
         <div className="grid min-h-0 flex-1 gap-3 p-3 md:grid-cols-2">
           <div className="flex min-h-0 flex-col gap-2">

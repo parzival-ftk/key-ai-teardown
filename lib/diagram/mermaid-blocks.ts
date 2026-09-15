@@ -91,3 +91,22 @@ export function stripMermaidBlocks(markdown: string): string {
 export function isSupportedDiagram(kind: MermaidDiagramKind): boolean {
   return kind === "flowchart" || kind === "state";
 }
+
+/**
+ * Mermaid 边类型正则**源码**（W27 起的单一事实来源）。
+ *
+ * 为什么放这里：W27 的语法修补器与布局优化器都要按箭头切分行，
+ * 两处各写一份必然漂移（一旦漏掉 `-->>`，它就会被切成 `-->` + `>`）。
+ * 与 `MERMAID_FENCE_PATTERN` 同理：导出**源码字符串**而非 RegExp 实例 ——
+ * `/g` 正则有 lastIndex 状态，多模块共享同一实例会互相串扰。
+ *
+ * 刻意**不含**裸 `--` / `==`：它们会把标签里的破折号（如 `A[API--Gateway]`）
+ * 误当箭头，代价大于收益（开链 `A -- B` 本就罕见）。长符号在前，避免前缀吞并。
+ */
+export const MERMAID_ARROW_SOURCE =
+  "(<-->|-->>|->>|==>|-->|---|-\\.->|-\\.-|===|--x|--o|~~~)";
+
+/** 各调用方各持一份实例（避免共享 `/g` 状态） */
+export function mermaidArrowPattern(flags = ""): RegExp {
+  return new RegExp(MERMAID_ARROW_SOURCE, flags);
+}
