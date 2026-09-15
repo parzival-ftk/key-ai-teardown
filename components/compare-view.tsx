@@ -11,6 +11,8 @@ import {
 import type { Evidence } from "@/lib/types/evidence";
 import { EvidenceList } from "./evidence-list";
 import { RadarChart, type RadarSeries } from "./comparison/RadarChart";
+import { DimensionWeightControls } from "./comparison/DimensionWeightControls";
+import { WeightedRankingTable } from "./comparison/WeightedRankingTable";
 import {
   hasEnoughDimensions,
   normalizeDimensionScores,
@@ -169,6 +171,9 @@ export function CompareView({
   );
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(Boolean(initialData));
+  // W20：维度权重（缺省 = 等权）。只影响加权综合分 / 排名与雷达图的轴长，
+  // 不改写模型给出的原始维度分。
+  const [weights, setWeights] = useState<Record<string, number>>({});
   const startedRef = useRef(false);
 
   const compareBrief =
@@ -372,8 +377,21 @@ export function CompareView({
         ))}
       </div>
 
-      {/* W16：竞品雷达图 —— 至少两个产品拿到维度分才画 */}
-      {radarSeries.length >= 2 && <RadarChart series={radarSeries} size={340} />}
+      {/* W20：维度权重配置 + 按权重缩放的雷达图 + 动态综合排名表（至少两个产品才成立） */}
+      {radarSeries.length >= 2 && (
+        <section className="flex flex-col gap-3">
+          <DimensionWeightControls weights={weights} onChange={setWeights} />
+          <RadarChart series={radarSeries} weights={weights} size={340} />
+          <WeightedRankingTable
+            items={radarSeries.map((s) => ({
+              id: s.id,
+              label: s.label,
+              scores: s.scores,
+            }))}
+            weights={weights}
+          />
+        </section>
+      )}
 
       {(comparison.status !== "idle" || comparison.output) && (
         <section className="key-fade-in-up rounded-xl border border-gray-200 p-5 dark:border-gray-800">
