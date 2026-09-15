@@ -6,6 +6,8 @@ import {
 import {
   RESOURCE_CATEGORY_IDS,
   RESOURCE_CATEGORY_LABELS,
+  RESOURCE_DESCRIPTION_MAX,
+  RESOURCE_ID_RULE,
   parseResourceItem,
 } from "./ui-resources";
 
@@ -19,10 +21,13 @@ describe("RESOURCE_EXTRACTION_SYSTEM_PROMPT", () => {
     }
   });
 
-  it("写明 4 标签规则、简介字数上限与 id 规范", () => {
+  it("写明 4 标签规则、简介字数上限与 id 规范（数值取自数据层的同一常量）", () => {
     expect(RESOURCE_EXTRACTION_SYSTEM_PROMPT).toContain("恰好 4 个");
-    expect(RESOURCE_EXTRACTION_SYSTEM_PROMPT).toContain("20 字");
-    expect(RESOURCE_EXTRACTION_SYSTEM_PROMPT).toContain("小写字母 + 数字 + 连字符");
+    expect(RESOURCE_EXTRACTION_SYSTEM_PROMPT).toContain(
+      `不超过 ${RESOURCE_DESCRIPTION_MAX} 字`,
+    );
+    expect(RESOURCE_EXTRACTION_SYSTEM_PROMPT).toContain(RESOURCE_ID_RULE);
+    expect(RESOURCE_EXTRACTION_SYSTEM_PROMPT).toContain("优先复用");
   });
 
   it("给出与数据契约一致的 JSON 输出格式", () => {
@@ -58,6 +63,20 @@ describe("buildResourceExtractionPrompt", () => {
     // 注意：系统提示词的 id 规则里也提到「已收录 id」，这里断言的是小节标题本身
     expect(prompt).not.toContain("【已收录 id（新条目不得与之重复）】");
     expect(prompt).toContain("【待处理的数据源 / 网址】");
+  });
+
+  it("带上已有标签词汇（要求模型复用，避免同义异名）", () => {
+    const prompt = buildResourceExtractionPrompt({
+      sources: "https://a.dev/",
+      existingTags: ["组件库", "Tailwind"],
+    });
+    expect(prompt).toContain("【已有标签（能复用就复用，不要造同义词）】");
+    expect(prompt).toContain("组件库 / Tailwind");
+  });
+
+  it("没有标签时省略标签小节", () => {
+    const prompt = buildResourceExtractionPrompt({ sources: "https://a.dev/" });
+    expect(prompt).not.toContain("【已有标签");
   });
 
   it("来源为空时给出占位提示而不是空 prompt", () => {

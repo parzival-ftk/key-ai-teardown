@@ -36,6 +36,24 @@ export const RESOURCE_CATEGORY_LABELS: Record<ResourceCategoryId, string> = {
 /** 固定 4 个标签：核心功能 / 技术或风格 / 适用场景 / 特色 */
 export type ResourceTags = [string, string, string, string];
 
+/**
+ * 简介字数上限 —— **单一事实来源**：校验器用它判定，Prompt 文本也引用它，
+ * 两处不可能再各写一个数（此前 Prompt 写 20、校验器写 30，25 字的产出会违规通关）。
+ */
+export const RESOURCE_DESCRIPTION_MAX = 20;
+
+/** id 契约（校验用） */
+export const RESOURCE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** id 契约（写进 Prompt 的人话版本，与上面的正则可被同一条测试锚定） */
+export const RESOURCE_ID_RULE =
+  "小写字母、数字与连字符（如 shadcn-ui），不得出现大写、下划线或空格";
+
+/** 按码点计数（emoji 等代理对不会被算成两个字符） */
+export function countChars(text: string): number {
+  return [...(text ?? "")].length;
+}
+
 export interface ResourceItem {
   id: string;
   name: string;
@@ -221,22 +239,28 @@ export type ParseResourceItemResult =
   | { ok: true; item: ResourceItem }
   | { ok: false; errors: string[] };
 
-/** 校验模型产出的单条资源（Prompt 的输出契约） */
+/** 校验模型产出的单条资源（Prompt 的输出契约）；结构与内容规则都在这里强制 */
 export function parseResourceItem(raw: unknown): ParseResourceItemResult {
   const item = toItem(raw);
-  if (item) {
-    const errors: string[] = [];
-    if (!/^https?:\/\//i.test(item.url)) errors.push(`url 必须是 http(s)：${item.url}`);
-    if (item.description.length > 30) {
-      errors.push(`简介应精炼（当前 ${item.description.length} 字）`);
-    }
-    if (errors.length === 0) return { ok: true, item };
-    return { ok: false, errors };
+  if (!item) {
+    return {
+      ok: false,
+      errors: ["缺少 id / name / url / description，或 tags 不是 4 个非空字符串"],
+    };
   }
-  return {
-    ok: false,
-    errors: ["缺少 id / name / url / description，或 tags 不是 4 个非空字符串"],
-  };
+
+  const errors: string[] = [];
+  if (!RESOURCE_ID_PATTERN.test(item.id)) {
+    errors.push(`id 不符合契约（${RESOURCE_ID_RULE}）：${item.id}`);
+  }
+  if (!/^https?:\/\//i.test(item.url)) {
+    errors.push(`url 必须是 http(s)：${item.url}`);
+  }
+  const length = countChars(item.description);
+  if (length > RESOURCE_DESCRIPTION_MAX) {
+    errors.push(`简介需 ≤${RESOURCE_DESCRIPTION_MAX} 字（当前 ${length} 字）`);
+  }
+  return errors.length === 0 ? { ok: true, item } : { ok: false, errors };
 }
 
 export interface AppendResult {

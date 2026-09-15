@@ -14,11 +14,20 @@ import { buildResourceExtractionPrompt } from "@/lib/resources/resource-prompt";
 export interface ResourceExtendPanelProps {
   /** 已收录的资源 id，拼进 prompt 避免重复扩充 */
   existingIds: string[];
+  /** 已收录的标签词汇，拼进 prompt 要求模型优先复用 */
+  existingTags?: string[];
 }
 
-export function ResourceExtendPanel({ existingIds }: ResourceExtendPanelProps) {
+export function ResourceExtendPanel({
+  existingIds,
+  existingTags = [],
+}: ResourceExtendPanelProps) {
   const [copied, setCopied] = useState(false);
-  const prompt = buildResourceExtractionPrompt({ sources: "", existingIds });
+  const prompt = buildResourceExtractionPrompt({
+    sources: "",
+    existingIds,
+    existingTags,
+  });
 
   async function copyPrompt() {
     try {

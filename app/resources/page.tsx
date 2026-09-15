@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ResourceNav } from "@/components/resources/ResourceNav";
 import { ResourceExtendPanel } from "@/components/resources/ResourceExtendPanel";
 import {
+  collectTags,
   countResources,
   loadResourceDataset,
 } from "@/lib/resources/ui-resources";
@@ -37,7 +38,10 @@ export default function ResourcesPage() {
       </header>
 
       <ResourceNav dataset={dataset} />
-      <ResourceExtendPanel existingIds={existingIds} />
+      <ResourceExtendPanel
+        existingIds={existingIds}
+        existingTags={collectTags(dataset)}
+      />
     </main>
   );
 }

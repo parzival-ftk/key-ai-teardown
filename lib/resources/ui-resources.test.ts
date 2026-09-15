@@ -3,8 +3,12 @@ import {
   ALL_CATEGORIES,
   RESOURCE_CATEGORY_IDS,
   RESOURCE_CATEGORY_LABELS,
+  RESOURCE_DESCRIPTION_MAX,
+  RESOURCE_ID_PATTERN,
+  RESOURCE_ID_RULE,
   appendResourceItem,
   collectTags,
+  countChars,
   countResources,
   filterResources,
   findResourceById,
@@ -41,7 +45,10 @@ describe("内置数据集：防漂移断言", () => {
         expect(item.name.length).toBeGreaterThan(0);
         expect(item.url).toMatch(/^https:\/\//);
         expect(item.description.length).toBeGreaterThan(0);
-        expect(item.description.length).toBeLessThanOrEqual(30);
+        expect(countChars(item.description)).toBeLessThanOrEqual(
+          RESOURCE_DESCRIPTION_MAX,
+        );
+        expect(item.id).toMatch(RESOURCE_ID_PATTERN);
         expect(item.tags).toHaveLength(4);
         for (const tag of item.tags) expect(tag.trim()).toBe(tag);
       }
@@ -140,12 +147,34 @@ describe("扩充闭环：parseResourceItem / appendResourceItem / serialize", ()
     expect(result.ok).toBe(true);
   });
 
-  it("拒绝标签数量不对 / 非 http url / 简介过长", () => {
+  it("强制 id 契约（大写 / 下划线 / 空格 / 空串都被拒）", () => {
+    for (const bad of ["Bad-Id", "bad_id", "bad id", "-bad", "bad-"]) {
+      const result = parseResourceItem({ ...valid, id: bad });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors.join(" ")).toContain("id 不符合契约");
+      }
+    }
+    // 契约的人话版本与正则指向同一规则
+    expect(RESOURCE_ID_PATTERN.test(valid.id)).toBe(true);
+    expect(RESOURCE_ID_RULE).toContain("连字符");
+  });
+
+  it("简介严格按 RESOURCE_DESCRIPTION_MAX 判定（边界值 20 通过、21 拒绝）", () => {
+    const twenty = "一".repeat(RESOURCE_DESCRIPTION_MAX);
+    expect(parseResourceItem({ ...valid, description: twenty }).ok).toBe(true);
+
+    const twentyOne = "一".repeat(RESOURCE_DESCRIPTION_MAX + 1);
+    const over = parseResourceItem({ ...valid, description: twentyOne });
+    expect(over.ok).toBe(false);
+    if (!over.ok) {
+      expect(over.errors.join(" ")).toContain(`≤${RESOURCE_DESCRIPTION_MAX}`);
+    }
+  });
+
+  it("拒绝标签数量不对 / 非 http url", () => {
     expect(parseResourceItem({ ...valid, tags: ["A", "B", "C"] }).ok).toBe(false);
     expect(parseResourceItem({ ...valid, url: "ftp://x" }).ok).toBe(false);
-    const long = parseResourceItem({ ...valid, description: "一".repeat(31) });
-    expect(long.ok).toBe(false);
-    if (!long.ok) expect(long.errors.join(" ")).toContain("精炼");
   });
 
   it("追加到指定分类（不可变，原数据集不变）", () => {

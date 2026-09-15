@@ -1,6 +1,8 @@
 import {
   RESOURCE_CATEGORY_IDS,
   RESOURCE_CATEGORY_LABELS,
+  RESOURCE_DESCRIPTION_MAX,
+  RESOURCE_ID_RULE,
   type ResourceCategoryId,
 } from "./ui-resources";
 
@@ -30,10 +32,11 @@ export const RESOURCE_EXTRACTION_SYSTEM_PROMPT = [
   "",
   "【标签】恰好 4 个，分别覆盖：核心功能 / 技术或风格 / 适用场景 / 特色。",
   "中文优先，专有名词保留原文（如 Tailwind、WebGL、React/Vue）。",
+  "优先复用「已有标签」列表里的词，避免同义异名（如「组件库」与「UI组件库」并存）。",
   "",
-  "【简介】一句话，不超过 20 字，说清它解决什么痛点。",
+  `【简介】一句话，不超过 ${RESOURCE_DESCRIPTION_MAX} 字，说清它解决什么痛点。`,
   "",
-  "【id】小写字母 + 数字 + 连字符，由名称转写而来，且不得与已收录 id 重复。",
+  `【id】${RESOURCE_ID_RULE}，由名称转写而来，且不得与已收录 id 重复。`,
   "",
   "【输出格式】只输出一个 JSON 数组，不要解释文字、不要 Markdown 围栏：",
   '[ { "id": "…", "name": "…", "url": "…", "tags": ["…", "…", "…", "…"], "description": "…" } ]',
@@ -51,15 +54,18 @@ export interface ResourceExtractionInput {
   sources: string;
   /** 已收录的资源 id（避免重复扩充） */
   existingIds?: readonly string[];
+  /** 已收录的标签词汇（要求模型优先复用，避免同义异名） */
+  existingTags?: readonly string[];
 }
 
 /**
- * 组装完整的扩充提示词：系统规范 + 已收录 id + 待处理来源。
+ * 组装完整的扩充提示词：系统规范 + 已收录 id + 已用标签 + 待处理来源。
  * 待处理来源为空时给出明确占位提示，而不是生成一条会让模型空转的 prompt。
  */
 export function buildResourceExtractionPrompt(input: ResourceExtractionInput): string {
   const sources = (input.sources ?? "").trim();
   const ids = (input.existingIds ?? []).map((id) => id.trim()).filter(Boolean);
+  const tags = (input.existingTags ?? []).map((tag) => tag.trim()).filter(Boolean);
 
   const sections = [RESOURCE_EXTRACTION_SYSTEM_PROMPT];
 
@@ -68,6 +74,14 @@ export function buildResourceExtractionPrompt(input: ResourceExtractionInput): s
       "",
       "【已收录 id（新条目不得与之重复）】",
       ids.join(", "),
+    );
+  }
+
+  if (tags.length > 0) {
+    sections.push(
+      "",
+      "【已有标签（能复用就复用，不要造同义词）】",
+      tags.join(" / "),
     );
   }
 

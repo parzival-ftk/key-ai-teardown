@@ -15,7 +15,7 @@
         "name": "Uiverse",
         "url": "https://uiverse.io/",
         "tags": ["CSS动效", "按钮卡片", "开源元素", "零依赖"],
-        "description": "社区驱动的纯 HTML/CSS 微组件库。"
+        "description": "社区驱动的纯 CSS 微组件库。"
       },
       {
         "id": "react-bits",
@@ -36,7 +36,7 @@
         "name": "Unicorn Studio",
         "url": "https://www.unicorn.studio/inspiration",
         "tags": ["3D视觉", "WebGL", "酷炫背景", "未来感"],
-        "description": "高端 WebGL 3D 视觉与动态背景灵感。"
+        "description": "WebGL 3D 视觉与动态背景。"
       }
     ]
   },
@@ -49,7 +49,7 @@
         "name": "Recent Design",
         "url": "https://recent.design/",
         "tags": ["网页画廊", "SaaS官网", "现代审美", "每日更新"],
-        "description": "精选全球最新上线的高品质 SaaS 官网。"
+        "description": "精选最新上线的 SaaS 官网。"
       },
       {
         "id": "umanmade",
@@ -77,7 +77,7 @@
         "name": "Mobbin",
         "url": "https://mobbin.com/",
         "tags": ["真机截图", "iOS/Android", "应用流程", "竞品分析"],
-        "description": "包含上百款顶级 Mobile APP 真实截图。"
+        "description": "上百款顶级 App 真实截图。"
       }
     ]
   },
@@ -145,7 +145,7 @@
         "name": "Glow Generative",
         "url": "https://glow.dev/",
         "tags": ["暗黑模式", "发光光晕", "科技感", "氛围渲染"],
-        "description": "专为 Dark Mode 页面的 Glow 发光效果。"
+        "description": "Dark Mode 页面的发光效果。"
       }
     ]
   },
@@ -179,7 +179,7 @@
         "name": "3Dicons",
         "url": "https://3dicons.co/",
         "tags": ["3D素材", "透明PNG", "源文件下载", "免费商用"],
-        "description": "高颜值、开箱即用的 3D 渲染图与图标包。"
+        "description": "开箱即用的 3D 渲染图与图标。"
       }
     ]
   }
