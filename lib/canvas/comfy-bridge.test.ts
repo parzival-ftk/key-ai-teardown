@@ -3,6 +3,7 @@ import {
   ComfyClient,
   DEFAULT_CHECKPOINT,
   buildInpaintWorkflow,
+  buildTxt2ImgWorkflow,
   isValidComfyBaseUrl,
   toResultCanvasNode,
   toWebSocketUrl,
@@ -10,6 +11,7 @@ import {
   type ComfyConnectionState,
   type ComfyImageResult,
   type ComfyWebSocketLike,
+  type ComfyWorkflow,
 } from "./comfy-bridge";
 import type { Rect } from "./viewport";
 
@@ -100,6 +102,103 @@ describe("地址工具", () => {
     for (const bad of ["", "   ", "127.0.0.1:8188", "ftp://a", "javascript:alert(1)"]) {
       expect(isValidComfyBaseUrl(bad)).toBe(false);
     }
+  });
+});
+
+/** 按 class_type 找节点 id（测试不写死编号，避免重排即碎） */
+const classId = (workflow: ComfyWorkflow, cls: string) =>
+  Object.entries(workflow).find(([, node]) => node.class_type === cls)?.[0] ?? "";
+
+describe("buildTxt2ImgWorkflow", () => {
+  const wf = buildTxt2ImgWorkflow({ prompt: "一只坐在窗台上的猫" });
+
+  it("只含最小文生图节点（无 inpaint 模块），正负各一个 CLIPTextEncode", () => {
+    const classes = Object.values(wf).map((node) => node.class_type);
+    for (const expected of [
+      "CheckpointLoaderSimple",
+      "CLIPTextEncode",
+      "EmptyLatentImage",
+      "KSampler",
+      "VAEDecode",
+      "SaveImage",
+    ]) {
+      expect(classes).toContain(expected);
+    }
+    expect(classes).not.toContain("LoadImage");
+    expect(classes).not.toContain("LoadImageMask");
+    expect(classes).not.toContain("VAEEncodeForInpaint");
+    expect(classes.filter((c) => c === "CLIPTextEncode")).toHaveLength(2);
+  });
+
+  it("连线真实有效：model/clip/vae 来自 checkpoint，latent 来自 EmptyLatentImage", () => {
+    const ckpt = classId(wf, "CheckpointLoaderSimple");
+    const ksampler = classId(wf, "KSampler");
+    const empty = classId(wf, "EmptyLatentImage");
+    const decode = classId(wf, "VAEDecode");
+    const save = classId(wf, "SaveImage");
+
+    expect(wf[ksampler].inputs.model).toEqual([ckpt, 0]);
+    expect(wf[ksampler].inputs.latent_image).toEqual([empty, 0]);
+    expect(wf[decode].inputs.samples).toEqual([ksampler, 0]);
+    expect(wf[decode].inputs.vae).toEqual([ckpt, 2]);
+    expect(wf[save].inputs.images).toEqual([decode, 0]);
+
+    // 每条连线指向的节点 id 都必须在图内（无悬空引用）
+    for (const node of Object.values(wf)) {
+      for (const value of Object.values(node.inputs)) {
+        if (Array.isArray(value) && typeof value[0] === "string") {
+          expect(Object.keys(wf)).toContain(value[0] as string);
+        }
+      }
+    }
+  });
+
+  it("提示词填入正向 CLIPTextEncode", () => {
+    const texts = Object.values(wf)
+      .filter((node) => node.class_type === "CLIPTextEncode")
+      .map((node) => node.inputs.text);
+    expect(texts).toContain("一只坐在窗台上的猫");
+  });
+
+  it("数值参数有默认值且可覆盖", () => {
+    const ckpt = classId(wf, "CheckpointLoaderSimple");
+    const empty = classId(wf, "EmptyLatentImage");
+    const ksampler = classId(wf, "KSampler");
+    expect(wf[empty].inputs).toMatchObject({ width: 512, height: 512, batch_size: 1 });
+    expect(wf[ksampler].inputs).toMatchObject({
+      steps: 20,
+      cfg: 7.5,
+      sampler_name: "euler",
+      scheduler: "normal",
+      denoise: 1,
+    });
+    expect(wf[ckpt].inputs.ckpt_name).toBe(DEFAULT_CHECKPOINT);
+
+    const custom = buildTxt2ImgWorkflow({
+      prompt: "x",
+      width: 768,
+      height: 512,
+      batchSize: 2,
+      steps: 30,
+      cfg: 5,
+      seed: 42,
+      checkpoint: "custom.safetensors",
+      denoise: 0.8,
+    });
+    expect(custom[classId(custom, "EmptyLatentImage")].inputs).toMatchObject({
+      width: 768,
+      height: 512,
+      batch_size: 2,
+    });
+    expect(custom[classId(custom, "KSampler")].inputs).toMatchObject({
+      steps: 30,
+      cfg: 5,
+      seed: 42,
+      denoise: 0.8,
+    });
+    expect(custom[classId(custom, "CheckpointLoaderSimple")].inputs.ckpt_name).toBe(
+      "custom.safetensors",
+    );
   });
 });
 

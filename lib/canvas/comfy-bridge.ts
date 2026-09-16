@@ -131,6 +131,95 @@ export function buildInpaintWorkflow(input: InpaintWorkflowInput): ComfyWorkflow
   };
 }
 
+/* ── ComfyUI workflow（文生图 · 最小可跑集） ── */
+
+export interface Txt2ImgWorkflowInput {
+  /** 正向提示词 */
+  prompt: string;
+  negativePrompt?: string;
+  checkpoint?: string;
+  /** 输出尺寸（像素），默认 512×512 */
+  width?: number;
+  height?: number;
+  batchSize?: number;
+  seed?: number;
+  steps?: number;
+  cfg?: number;
+  samplerName?: string;
+  scheduler?: string;
+  /** 文生图默认 1（从整张噪声重绘）；inpaint 才用 <1 的局部重绘强度 */
+  denoise?: number;
+  filenamePrefix?: string;
+}
+
+export const DEFAULT_WIDTH = 512;
+export const DEFAULT_HEIGHT = 512;
+export const DEFAULT_BATCH_SIZE = 1;
+export const DEFAULT_TXT2IMG_DENOISE = 1;
+
+/**
+ * 由「提示词 + 尺寸」构造 ComfyUI **文生图** workflow（最小可跑集）。
+ *
+ * 节点图：CheckpointLoaderSimple ─┬→ CLIPTextEncode(正/负) ─→ KSampler → VAEDecode → SaveImage
+ *                                  ├→ EmptyLatentImage ───────┘
+ *                                  └→ (VAE) ──────────────────────────────────────┘
+ *
+ * 与 `buildInpaintWorkflow` 的区别：没有 LoadImage/LoadImageMask/VAEEncodeForInpaint，
+ * latent 直接由 `EmptyLatentImage` 产生 —— 这是「从无到有生成一张图」的最短链路。
+ * 节点类、输入名、枚举值、必要输入是否成立，交给 `inspectComfyNodeGraph` 对着实例的
+ * `/object_info` 机械校验，这里不猜。
+ */
+export function buildTxt2ImgWorkflow(input: Txt2ImgWorkflowInput): ComfyWorkflow {
+  return {
+    "1": {
+      class_type: "CheckpointLoaderSimple",
+      inputs: { ckpt_name: input.checkpoint ?? DEFAULT_CHECKPOINT },
+    },
+    "2": {
+      class_type: "CLIPTextEncode",
+      inputs: { text: input.prompt ?? "", clip: ["1", 1] },
+    },
+    "3": {
+      class_type: "CLIPTextEncode",
+      inputs: {
+        text: input.negativePrompt ?? "低质量, 模糊, 变形",
+        clip: ["1", 1],
+      },
+    },
+    "4": {
+      class_type: "EmptyLatentImage",
+      inputs: {
+        width: input.width ?? DEFAULT_WIDTH,
+        height: input.height ?? DEFAULT_HEIGHT,
+        batch_size: input.batchSize ?? DEFAULT_BATCH_SIZE,
+      },
+    },
+    "5": {
+      class_type: "KSampler",
+      inputs: {
+        model: ["1", 0],
+        positive: ["2", 0],
+        negative: ["3", 0],
+        latent_image: ["4", 0],
+        seed: input.seed ?? 0,
+        steps: input.steps ?? DEFAULT_STEPS,
+        cfg: input.cfg ?? DEFAULT_CFG,
+        sampler_name: input.samplerName ?? DEFAULT_SAMPLER,
+        scheduler: input.scheduler ?? DEFAULT_SCHEDULER,
+        denoise: input.denoise ?? DEFAULT_TXT2IMG_DENOISE,
+      },
+    },
+    "6": {
+      class_type: "VAEDecode",
+      inputs: { samples: ["5", 0], vae: ["1", 2] },
+    },
+    "7": {
+      class_type: "SaveImage",
+      inputs: { images: ["6", 0], filename_prefix: input.filenamePrefix ?? "key_txt2img" },
+    },
+  };
+}
+
 /* ── 事件与配置 ── */
 
 export type ComfyConnectionState =

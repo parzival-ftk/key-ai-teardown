@@ -84,18 +84,110 @@ function isLink(value: unknown): value is [string, number] {
   );
 }
 
+/* ── 类型 / 必要输入 检查用的小工具 ── */
+
+/** 节点图的「张量类」输入：必须来自上游连线，不能是常量 */
+const TENSOR_TYPES = new Set([
+  "IMAGE",
+  "MASK",
+  "LATENT",
+  "MODEL",
+  "CLIP",
+  "VAE",
+  "CONDITIONING",
+  "CONTROL_NET",
+  "CLIP_VISION",
+  "STYLE_MODEL",
+  "UPSCALE_MODEL",
+  "GLIGEN",
+  "SAMPLER",
+  "SIGMAS",
+  "GUIDER",
+  "NOISE",
+]);
+
+function requiredSpecs(info: ComfyNodeInfo | undefined): Record<string, InputSpec> {
+  const required = info?.input?.required ?? {};
+  const out: Record<string, InputSpec> = {};
+  for (const [name, spec] of Object.entries(required)) {
+    if (Array.isArray(spec)) out[name] = spec as InputSpec;
+  }
+  return out;
+}
+
+/** required 输入是否声明了默认值（有默认 → 后端会补，缺它不算错） */
+function hasDefault(spec: InputSpec): boolean {
+  const opts = spec[1];
+  return !!opts && Object.prototype.hasOwnProperty.call(opts, "default");
+}
+
+/**
+ * 参数类型检查。返回 `null` 表示「不适用」——combo（交给 enum 检查）、
+ * 连线（交给 link 检查）、以及本仓不认识的类型名，都不在这里判。
+ */
+function checkValueType(
+  spec: InputSpec,
+  value: unknown,
+): { ok: boolean; expected: string } | null {
+  const raw = spec[0];
+  if (Array.isArray(raw)) return null;
+  if (typeof raw !== "string") return null;
+  if (isLink(value)) return null;
+
+  switch (raw) {
+    case "INT":
+      return { ok: typeof value === "number" && Number.isInteger(value), expected: "INT（整数）" };
+    case "FLOAT":
+      return { ok: typeof value === "number", expected: "FLOAT（数字）" };
+    case "STRING":
+      return { ok: typeof value === "string", expected: "STRING（字符串）" };
+    case "BOOLEAN":
+      return { ok: typeof value === "boolean", expected: "BOOLEAN（布尔）" };
+    default:
+      return TENSOR_TYPES.has(raw)
+        ? { ok: false, expected: `${raw}（须连线到上游节点的输出）` }
+        : null;
+  }
+}
+
+function describeValue(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value) || (value && typeof value === "object")) return JSON.stringify(value);
+  return String(value);
+}
+
 /* ── 主比对 ── */
 
 /**
  * 逐节点、逐输入比对 workflow 与实例的 object_info。
  * 每一档结论都带 id，便于在报告里定位到具体节点/输入。
  */
+/** `inspectComfyNodeGraph` 的可选项 */
+export interface InspectOptions {
+  /** 图中必须出现的节点类；缺一即 fail（用于「这条流程的必备节点」） */
+  requireNodes?: string[];
+}
+
 export function inspectComfyNodeGraph(
   workflow: ComfyWorkflow,
   objectInfo: ComfyObjectInfo,
+  options: InspectOptions = {},
 ): DoctorFinding[] {
   const findings: DoctorFinding[] = [];
   const nodeIds = new Set(Object.keys(workflow ?? {}));
+
+  const presentClasses = new Set(Object.values(workflow ?? {}).map((node) => node.class_type));
+  for (const requiredClass of options.requireNodes ?? []) {
+    if (!presentClasses.has(requiredClass)) {
+      findings.push({
+        level: "fail",
+        id: `missing-class:${requiredClass}`,
+        message: `workflow 缺少必要节点类「${requiredClass}」`,
+        actual: requiredClass,
+        hint: `这条流程必须包含 ${requiredClass}，请检查该节点是否被漏写或被误删`,
+      });
+    }
+  }
 
   for (const [nodeId, node] of Object.entries(workflow ?? {})) {
     const info = objectInfo?.[node.class_type];
@@ -162,9 +254,9 @@ export function inspectComfyNodeGraph(
       }
 
       if (isFixedEnum(spec)) {
-        const options = enumOptions(spec);
+        const allowed = enumOptions(spec);
         const text = String(value);
-        if (options.includes(text)) {
+        if (allowed.includes(text)) {
           findings.push({
             level: "ok",
             id: `combo:${nodeId}.${inputName}`,
@@ -178,7 +270,7 @@ export function inspectComfyNodeGraph(
               inputName === "ckpt_name"
                 ? `${node.class_type}.ckpt_name 指向的**模型**不在本机模型列表里`
                 : `${node.class_type}.${inputName} 的值不在本实例的允许列表里`,
-            expected: options.join(", "),
+            expected: allowed.join(", "),
             actual: text,
             hint:
               inputName === "ckpt_name"
@@ -186,6 +278,39 @@ export function inspectComfyNodeGraph(
                 : "把 workflow 里的这个值改成允许列表中的一项",
           });
         }
+        continue;
+      }
+
+      const typeCheck = checkValueType(spec, value);
+      if (typeCheck && !typeCheck.ok) {
+        findings.push({
+          level: "fail",
+          id: `type:${nodeId}.${inputName}`,
+          message: `${node.class_type}.${inputName} 的值类型不符：期望 ${typeCheck.expected}`,
+          expected: typeCheck.expected,
+          actual: describeValue(value),
+          hint: "按期望类型改这个值；IMAGE/LATENT 这类输入必须连到上游节点的输出",
+        });
+      }
+    }
+
+    for (const [requiredName, requiredSpec] of Object.entries(requiredSpecs(info))) {
+      if (requiredName in (node.inputs ?? {})) continue;
+      if (hasDefault(requiredSpec)) {
+        findings.push({
+          level: "warn",
+          id: `required:${nodeId}.${requiredName}`,
+          message: `${node.class_type} 未显式给出「${requiredName}」，但该输入有默认值，后端会用默认值`,
+          hint: "想把它固定下来就在 workflow 里显式写上",
+        });
+      } else {
+        findings.push({
+          level: "fail",
+          id: `required:${nodeId}.${requiredName}`,
+          message: `${node.class_type} 缺少必要输入「${requiredName}」`,
+          expected: requiredName,
+          hint: `补上 ${requiredName}（该输入没有默认值，后端会拒绝执行）`,
+        });
       }
     }
 
@@ -268,4 +393,98 @@ const ORDER: Record<FindingLevel, number> = { fail: 0, warn: 1, manual: 2, ok: 3
 /** 排序：fail → warn → manual → ok（报告应先说坏消息） */
 export function rankFindings(findings: DoctorFinding[]): DoctorFinding[] {
   return [...(findings ?? [])].sort((a, b) => ORDER[a.level] - ORDER[b.level]);
+}
+
+/* ── 面向人的节点级报告（[PASS] / [ERROR]） ── */
+
+const REASON_BY_CATEGORY: Record<string, string> = {
+  class: "unknown class_type",
+  input: "unknown input name",
+  combo: "invalid enum value",
+  link: "dangling node reference",
+  required: "missing required input",
+  type: "type mismatch",
+  "missing-class": "missing required node",
+  manual: "manual step required",
+};
+
+/** 从 finding id 里取出节点 id（`combo:5.scheduler` → `"5"`；图级 id 返回名字本身） */
+function nodeIdFromFinding(id: string): string | null {
+  const colon = id.indexOf(":");
+  if (colon === -1) return null;
+  const after = id.slice(colon + 1);
+  const dot = after.indexOf(".");
+  return dot === -1 ? after : after.slice(0, dot);
+}
+
+/** 从 finding id 里取出输入名（`combo:5.scheduler` → `"scheduler"`） */
+function inputNameFromFinding(id: string): string | null {
+  const colon = id.indexOf(":");
+  if (colon === -1) return null;
+  const after = id.slice(colon + 1);
+  const dot = after.indexOf(".");
+  return dot === -1 ? null : after.slice(dot + 1);
+}
+
+function reasonOf(id: string): string {
+  const category = id.slice(0, id.indexOf(":"));
+  return REASON_BY_CATEGORY[category] ?? "validation error";
+}
+
+export interface WorkflowReport {
+  /** 人类可读的节点级报告全文 */
+  text: string;
+  findings: DoctorFinding[];
+  summary: FindingSummary;
+  verdict: FindingSummary["verdict"];
+}
+
+/**
+ * 生成节点级的 `[PASS]` / `[ERROR]` 报告。
+ *
+ * 每个节点：无 fail 打印一行 `[PASS] <class_type>`；有 fail 则逐条打印
+ * `[ERROR] <class_type>` 并带 `input / value / reason / allowed`。图级问题
+ * （如缺少必要节点）单独成段。末行给出 `Workflow validation: PASS|FAIL`。
+ */
+export function renderWorkflowReport(
+  workflow: ComfyWorkflow,
+  objectInfo: ComfyObjectInfo,
+  options: InspectOptions = {},
+): WorkflowReport {
+  const findings = inspectComfyNodeGraph(workflow, objectInfo, options);
+  const nodeIds = new Set(Object.keys(workflow ?? {}));
+  const lines: string[] = [];
+
+  for (const [nodeId, node] of Object.entries(workflow ?? {})) {
+    const fails = findings.filter(
+      (f) => f.level === "fail" && nodeIdFromFinding(f.id) === nodeId,
+    );
+    if (fails.length === 0) {
+      lines.push(`[PASS] ${node.class_type}`);
+      continue;
+    }
+    for (const finding of fails) {
+      lines.push(`[ERROR] ${node.class_type}`);
+      lines.push(`  input: ${inputNameFromFinding(finding.id) ?? "-"}`);
+      lines.push(`  value: ${finding.actual ?? "-"}`);
+      lines.push(`  reason: ${reasonOf(finding.id)}`);
+      if (finding.expected) lines.push(`  allowed: ${finding.expected}`);
+    }
+  }
+
+  const graphFails = findings.filter(
+    (f) => f.level === "fail" && !nodeIds.has(nodeIdFromFinding(f.id) ?? ""),
+  );
+  for (const finding of graphFails) {
+    lines.push("[ERROR] (workflow)");
+    lines.push(`  value: ${finding.actual ?? "-"}`);
+    lines.push(`  reason: ${reasonOf(finding.id)}`);
+    lines.push(`  detail: ${finding.message}`);
+  }
+
+  const summary = summarizeFindings(findings);
+  lines.push("");
+  lines.push(`Workflow validation: ${summary.fail > 0 ? "FAIL" : "PASS"}`);
+
+  return { text: lines.join("\n"), findings, summary, verdict: summary.verdict };
 }

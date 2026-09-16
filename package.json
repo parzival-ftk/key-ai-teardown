@@ -15,6 +15,7 @@
     "demo": "node scripts/demo-smoke.mjs",
     "stub:comfy": "node e2e/stub-comfy-server.mjs",
     "comfy:doctor": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/comfy-doctor.ts",
+    "comfy:txt2img": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/comfy-txt2img.ts",
     "eval": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/run-eval.ts"
   },
   "dependencies": {

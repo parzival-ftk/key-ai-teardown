@@ -29,6 +29,37 @@ npm run comfy:doctor -- --url=http://127.0.0.1:8288    # 换端口
 
 ---
 
+## 一·补、最小文生图 API 闭环（一条命令）
+
+`npm run comfy:txt2img` 把「最小文生图 workflow + API 调用 + 机械校验 + 结果确认」串成一次运行：
+
+```bash
+npm run stub:comfy                                       # 先起实例（本仓假实例，或真 ComfyUI）
+npm run comfy:txt2img -- --checkpoint=<本机模型文件名>    # 全绿则 exit 0，并落一张图到 .rivet/artifacts/comfy
+```
+
+它依次做六件事：`/system_stats` 探测可达 → `/object_info` 取自省 → 构造 7 节点文生图 workflow
+（CheckpointLoaderSimple → CLIPTextEncode×2 → EmptyLatentImage → KSampler → VAEDecode → SaveImage）
+→ 用 `renderWorkflowReport` 逐节点校验 → `POST /prompt` 入队 → 轮询 `GET /history/<prompt_id>`
+→ `GET /view` 取回图片字节并校验 PNG 魔数。任一步失败（含校验 fail）exit 非 0。
+
+参数失配会被当场点名的样子：
+
+```bash
+npm run comfy:txt2img -- --scheduler=xxx
+#   [ERROR] KSampler
+#     input: scheduler
+#     value: xxx
+#     reason: invalid enum value
+#     allowed: normal, karras, exponential
+#   Workflow validation: FAIL
+```
+
+> 注意：脚本用的是 `scripts\comfy-txt2img.ts` 里 `buildTxt2ImgWorkflow` 的固定节点图，参数值（`ckpt_name` /
+> `sampler_name` / `scheduler`）需与实例 `/object_info` 对得上——校验会给出 `allowed`，按它改或传 `--checkpoint=…`。
+
+---
+
 ## 二、doctor 会自动核的项
 
 | # | 要核的东西 | 为什么它可能出错 | 对不上时改哪 |

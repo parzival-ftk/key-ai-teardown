@@ -118,6 +118,17 @@ const objectInfo = {
     output: ["CONDITIONING"],
     output_name: ["CONDITIONING"],
   },
+  EmptyLatentImage: {
+    input: {
+      required: {
+        width: ["INT", { default: 512, min: 16, max: 16384 }],
+        height: ["INT", { default: 512, min: 16, max: 16384 }],
+        batch_size: ["INT", { default: 1, min: 1, max: 4096 }],
+      },
+    },
+    output: ["LATENT"],
+    output_name: ["LATENT"],
+  },
   KSampler: {
     input: {
       required: {
@@ -157,6 +168,7 @@ const objectInfo = {
 /* ── 手写 WebSocket（只需文本帧，够本 stub 用） ── */
 
 const sockets = new Map(); // clientId → socket
+const promptHistory = new Map(); // promptId → 执行记录（GET /history/<id> 用）
 
 function wsAccept(key) {
   return createHash("sha1")
@@ -242,51 +254,72 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "POST" && url.pathname === "/prompt") {
     const raw = await readBody(req);
-    let clientId = null;
+    let payload = {};
     try {
-      clientId = JSON.parse(raw.toString("utf8")).client_id ?? null;
+      payload = JSON.parse(raw.toString("utf8"));
     } catch {
-      clientId = null;
+      payload = {};
     }
+    const clientId = payload.client_id ?? null;
+    const graph = payload.prompt ?? {};
+    const nodeIds = Object.keys(graph);
     const promptId = randomUUID();
-    // 异步推送状态流：进度 → 执行节点 → 产出图像
-    const socket = clientId ? sockets.get(clientId) : null;
-    if (socket) {
-      void (async () => {
-        const steps = [
-          { type: "executing", data: { node: "3" } },
-          { type: "progress", data: { value: 1, max: 4 } },
-          { type: "executing", data: { node: "7" } },
-          { type: "progress", data: { value: 2, max: 4 } },
-          { type: "progress", data: { value: 3, max: 4 } },
-          { type: "progress", data: { value: 4, max: 4 } },
-        ];
-        for (const step of steps) {
-          await new Promise((r) => setTimeout(r, STEP_DELAY_MS));
-          wsSend(socket, step);
-        }
+
+    // 输出挂在 SaveImage 节点上（找不到就退化为最后一个节点）
+    const saveEntry = Object.entries(graph).find(([, node]) => node?.class_type === "SaveImage");
+    const saveNodeId = saveEntry ? saveEntry[0] : nodeIds[nodeIds.length - 1] ?? null;
+    const prefix = saveEntry?.[1]?.inputs?.filename_prefix ?? "key_stub";
+    const image = {
+      filename: `${prefix}_${String(Date.now()).slice(-8)}.png`,
+      subfolder: SUBFOLDER[0],
+      type: "output",
+    };
+
+    // 「执行」：延迟后写入 history（供 GET /history/<id> 轮询），同时向已连的 WS 推状态流
+    void (async () => {
+      const socket = clientId ? sockets.get(clientId) : null;
+      const steps = [
+        { type: "executing", data: { node: nodeIds[0] ?? null } },
+        { type: "progress", data: { value: 1, max: 4 } },
+        { type: "progress", data: { value: 2, max: 4 } },
+        { type: "progress", data: { value: 3, max: 4 } },
+        { type: "progress", data: { value: 4, max: 4 } },
+      ];
+      for (const step of steps) {
+        await new Promise((r) => setTimeout(r, STEP_DELAY_MS));
+        if (socket) wsSend(socket, step);
+      }
+      promptHistory.set(promptId, {
+        prompt: [1, promptId, graph, {}, nodeIds],
+        outputs: saveNodeId ? { [saveNodeId]: { images: [image] } } : {},
+        status: { status_str: "success", completed: true, messages: [] },
+      });
+      if (socket) {
         await new Promise((r) => setTimeout(r, STEP_DELAY_MS));
         wsSend(socket, { type: "executing", data: { node: null } });
         wsSend(socket, {
           type: "executed",
           data: {
-            node: "9",
-            display_node: "9",
+            node: saveNodeId,
+            display_node: saveNodeId,
             prompt_id: promptId,
-            output: {
-              images: [
-                {
-                  filename: `key_canvas_stub_${Date.now()}.png`,
-                  subfolder: SUBFOLDER[0],
-                  type: "output",
-                },
-              ],
-            },
+            output: { images: [image] },
           },
         });
-      })();
-    }
+      }
+    })();
+
     return json(200, { prompt_id: promptId, number: 1 });
+  }
+
+  // 执行结果（与真实 ComfyUI 同形）：未完成/未知的 prompt_id 返回 {}
+  if (req.method === "GET" && url.pathname === "/history") {
+    return json(200, Object.fromEntries(promptHistory));
+  }
+  if (req.method === "GET" && url.pathname.startsWith("/history/")) {
+    const id = decodeURIComponent(url.pathname.slice("/history/".length));
+    const entry = promptHistory.get(id);
+    return json(200, entry ? { [id]: entry } : {});
   }
 
   return json(404, { error: "not found", path: url.pathname });
