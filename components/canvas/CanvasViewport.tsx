@@ -35,6 +35,63 @@ import {
   type CanvasNodeType,
   type ResizeHandle,
 } from "@/lib/canvas/canvas-node";
+import {
+  ComfyClient,
+  buildInpaintWorkflow,
+  toResultCanvasNode,
+  type ComfyBridgeConfig,
+  type ComfyClientEvents,
+  type ComfyConnectionState,
+} from "@/lib/canvas/comfy-bridge";
+
+/**
+ * Inpaint 的**环境边界**（可注入）：与浏览器/网络打交道的三件事抽成端口，
+ * 测试因此能跑完整条链路（选节点 → 上传 → 提交 → 进度 → 落图）而不必连真实后端。
+ * 缺省实现就是浏览器里要用的真货。
+ */
+export interface InpaintPorts {
+  /** 建立 ComfyClient（测试注入带假传输的实例） */
+  createClient: (config: ComfyBridgeConfig, events: ComfyClientEvents) => ComfyClient;
+  /** 把节点的 src 取成 Blob（浏览器用 fetch） */
+  loadImageBlob: (src: string) => Promise<Blob>;
+  /** 按选区尺寸生成白底遮罩（浏览器用 canvas 画，白色 = 重绘区域） */
+  createMask: (size: { width: number; height: number }) => Promise<Blob>;
+}
+
+/** 浏览器缺省实现 */
+export const defaultInpaintPorts: InpaintPorts = {
+  createClient: (config, events) => new ComfyClient(config, events),
+  loadImageBlob: async (src) => {
+    const response = await fetch(src);
+    if (!response.ok) throw new Error(`读取图片失败：HTTP ${response.status}`);
+    return response.blob();
+  },
+  createMask: async ({ width, height }) => {
+    if (typeof document === "undefined") {
+      throw new Error("当前环境不支持 2D 画布，无法生成遮罩");
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width));
+    canvas.height = Math.max(1, Math.round(height));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("当前环境不支持 2D 画布，无法生成遮罩");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/png"),
+    );
+    if (!blob) throw new Error("遮罩生成失败（canvas.toBlob 返回空）");
+    return blob;
+  },
+};
+
+/** ComfyUI 默认地址（本地部署的默认端口） */
+export const DEFAULT_COMFY_URL = "http://127.0.0.1:8188";
+
+/** 只有「带图片的节点」能被重绘 —— 画框/prompt 节点没有像素可改 */
+function canInpaint(node: CanvasNode | null): boolean {
+  return Boolean(node && node.type === "image" && node.src);
+}
 
 /**
  * Figma 式无限画布（W29）。
@@ -103,9 +160,18 @@ type DragState =
 export interface CanvasViewportProps {
   /** 初始节点（受控场景可注入） */
   initialNodes?: CanvasNode[];
+  /** Inpaint 端口（缺省用浏览器实现） */
+  inpaintPorts?: InpaintPorts;
+  /** ComfyUI 服务地址初值 */
+  comfyServerUrl?: string;
 }
 
-export function CanvasViewport({ initialNodes = [] }: CanvasViewportProps) {
+export function CanvasViewport({
+  initialNodes = [],
+  inpaintPorts,
+  comfyServerUrl = DEFAULT_COMFY_URL,
+}: CanvasViewportProps) {
+  const ports = inpaintPorts ?? defaultInpaintPorts;
   const [nodes, setNodes] = useState<CanvasNode[]>(initialNodes);
   const [viewport, setViewport] = useState<Viewport>({ ...DEFAULT_VIEWPORT });
   const [selection, setSelection] = useState<string[]>([]);
@@ -114,6 +180,14 @@ export function CanvasViewport({ initialNodes = [] }: CanvasViewportProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   /** 拖拽中的选框（**必须是 state**：ref 不能在渲染期读取） */
   const [marquee, setMarquee] = useState<Rect | null>(null);
+  /* W31：ComfyUI inpaint —— 提示词 / 进行中 / 进度 / 错误 / 服务地址 */
+  const [promptText, setPromptText] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [serverUrl, setServerUrl] = useState(comfyServerUrl);
+  /** 连接阶段（握手/重连可能要数秒，界面得说清在等什么） */
+  const [comfyState, setComfyState] = useState<ComfyConnectionState>("idle");
 
   const surfaceRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState>({ kind: "none" });
@@ -183,6 +257,54 @@ export function CanvasViewport({ initialNodes = [] }: CanvasViewportProps) {
     const rect = surfaceRef.current?.getBoundingClientRect();
     return { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
   }, []);
+
+  /** 把一张本地图片落成画布节点（inpaint 的必需前提：没有图片节点就无从重绘） */
+  const ingestImageFile = useCallback((file: File | null | undefined, at: Point) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = String(reader.result ?? "");
+      if (!src) return;
+      setNodes((current) => [
+        ...current,
+        createCanvasNode(
+          {
+            type: "image",
+            x: at.x,
+            y: at.y,
+            width: DEFAULT_NODE_SIZE.width,
+            height: DEFAULT_NODE_SIZE.height,
+            label: file.name || "图片",
+            src,
+          },
+          current,
+        ),
+      ]);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  /* 粘贴图片 → 落到视口中心附近 */
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (!item.type.startsWith("image/")) continue;
+        const file = item.getAsFile();
+        if (!file) continue;
+        event.preventDefault();
+        const center = screenToCanvas(viewport, centerOf(size));
+        ingestImageFile(file, {
+          x: center.x - DEFAULT_NODE_SIZE.width / 2,
+          y: center.y - DEFAULT_NODE_SIZE.height / 2,
+        });
+        return;
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [viewport, size, ingestImageFile]);
 
   /* ── 手势 ── */
 
@@ -373,6 +495,63 @@ export function CanvasViewport({ initialNodes = [] }: CanvasViewportProps) {
     setViewport({ ...DEFAULT_VIEWPORT });
   }
 
+  /**
+   * 提交一次 inpaint：连 ComfyUI → 上传原图与遮罩 → 提交 workflow → 结果落回**原选区坐标**。
+   *
+   * 一次生成一个连接（用完即关）。失败路径统一落到 `genError`，且不会让 loading 卡住
+   * —— `connect()` 保证 settle（此前会永久挂起，已在桥接层修掉）。
+   */
+  async function handleInpaintSubmit() {
+    const node = selectedNodes.length === 1 ? selectedNodes[0] : null;
+    const instruction = promptText.trim();
+    if (!node || !instruction || isGenerating) return;
+    if (!canInpaint(node)) {
+      setGenError("只有带图片的节点可以重绘");
+      return;
+    }
+
+    setIsGenerating(true);
+    setProgress(0);
+    setGenError(null);
+    setComfyState("connecting");
+
+    const client = ports.createClient(
+      {
+        baseUrl: serverUrl,
+        timeoutMs: 120_000,
+        maxReconnects: 1,
+        reconnectDelayMs: 400,
+      },
+      {
+        onState: (state) => setComfyState(state),
+        onProgress: (percent) => setProgress(percent),
+        onError: (error) => setGenError(error.message),
+      },
+    );
+
+    try {
+      await client.connect();
+      const bounds = { x: node.x, y: node.y, width: node.width, height: node.height };
+      const [imageBlob, maskBlob] = await Promise.all([
+        ports.loadImageBlob(node.src as string),
+        ports.createMask({ width: node.width, height: node.height }),
+      ]);
+      // ComfyUI 只认 input 目录里的文件名 —— 必须先上传，再建引用文件名的 workflow
+      const imageName = await client.uploadImage("canvas-base.png", imageBlob);
+      const maskName = await client.uploadImage("canvas-mask.png", maskBlob);
+      const result = await client.generate(
+        buildInpaintWorkflow({ prompt: instruction, imageName, maskName }),
+      );
+      setNodes((current) => [...current, toResultCanvasNode(result, bounds, current)]);
+    } catch (error) {
+      setGenError(error instanceof Error ? error.message : "生成失败");
+    } finally {
+      client.close();
+      setIsGenerating(false);
+      setProgress(null);
+    }
+  }
+
   /* ── 渲染 ── */
 
   const gridSize = GRID_SIZE * viewport.scale;
@@ -441,6 +620,12 @@ export function CanvasViewport({ initialNodes = [] }: CanvasViewportProps) {
           onPointerUp={onSurfacePointerUp}
           onPointerCancel={onSurfacePointerUp}
           onWheel={onWheel}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            const file = event.dataTransfer?.files?.[0];
+            if (file) ingestImageFile(file, toCanvas(event));
+          }}
           className={`relative h-full w-full touch-none overflow-hidden rounded-xl border border-gray-200 ${
             spaceDown || tool !== "select" ? "cursor-grab" : "cursor-default"
           } dark:border-gray-800`}
@@ -528,6 +713,69 @@ export function CanvasViewport({ initialNodes = [] }: CanvasViewportProps) {
             </div>
           )}
         </div>
+
+        {/* W31：选区上方的 ComfyUI Inpaint 浮条 */}
+        {selectedNode && box && (
+          <div
+            data-canvas-inpaint-bar
+            className="absolute z-[60] flex flex-wrap items-center gap-2 rounded-lg border border-gray-700 bg-gray-900/95 p-2 text-xs text-white shadow-xl backdrop-blur"
+            style={{
+              left: canvasToScreen(viewport, { x: box.x, y: box.y }).x,
+              top: Math.max(
+                8,
+                canvasToScreen(viewport, { x: box.x, y: box.y }).y - 46,
+              ),
+            }}
+          >
+            <input
+              data-canvas-inpaint-prompt
+              value={promptText}
+              disabled={isGenerating}
+              onChange={(event) => setPromptText(event.target.value)}
+              placeholder="输入 AI 重绘 / 生成 Prompt…"
+              className="w-52 rounded border border-gray-600 bg-gray-800 px-2 py-1 text-xs text-gray-100 outline-none focus:border-indigo-500"
+            />
+            <button
+              type="button"
+              data-canvas-inpaint-submit
+              onClick={() => void handleInpaintSubmit()}
+              disabled={
+                isGenerating || promptText.trim() === "" || !canInpaint(selectedNode)
+              }
+              className="flex items-center gap-1 rounded bg-indigo-600 px-3 py-1 text-xs font-medium transition hover:bg-indigo-500 disabled:opacity-50"
+            >
+              {isGenerating
+                ? comfyState === "reconnecting"
+                  ? "重连中…"
+                  : comfyState === "connected"
+                    ? "生成中…"
+                    : "连接中…"
+                : "✨ ComfyUI Inpaint"}
+            </button>
+            {isGenerating && progress !== null && (
+              <span
+                data-canvas-inpaint-progress
+                className="tabular-nums text-gray-300"
+              >
+                {progress}%
+              </span>
+            )}
+            {!canInpaint(selectedNode) && !isGenerating && (
+              <span className="text-[11px] text-amber-300">
+                只有带图片的节点能重绘
+              </span>
+            )}
+            {genError && (
+              <span
+                data-canvas-inpaint-error
+                title={genError}
+                className="max-w-56 truncate text-[11px] text-red-300"
+              >
+                {genError}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* 悬浮工具栏 */}
         <div
@@ -696,6 +944,15 @@ export function CanvasViewport({ initialNodes = [] }: CanvasViewportProps) {
         <p className="mt-auto px-1 text-[11px] leading-relaxed text-gray-400">
           Space/中键拖拽平移 · Ctrl+滚轮缩放 · 选中后拖手柄拉伸
         </p>
+        <label className="flex flex-col gap-1 px-1">
+          <span className="text-gray-400">ComfyUI 服务地址</span>
+          <input
+            data-canvas-comfy-url
+            value={serverUrl}
+            onChange={(event) => setServerUrl(event.target.value)}
+            className="w-full rounded border border-gray-300 px-1.5 py-0.5 text-[11px] dark:border-gray-700 dark:bg-gray-950"
+          />
+        </label>
       </aside>
     </div>
   );
