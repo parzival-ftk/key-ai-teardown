@@ -26,15 +26,17 @@ export interface ComfyNode {
 export type ComfyWorkflow = Record<string, ComfyNode>;
 
 export interface InpaintWorkflowInput {
-  /** 正向提示词（来自画布上的 Prompt 节点） */
+  /** 正向提示词（来自画布上的 Prompt 输入） */
   prompt: string;
   negativePrompt?: string;
-  /** 源图：纯 base64（不含 `data:` 前缀） */
-  imageBase64: string;
-  /** 遮罩：纯 base64；白色区域 = 需要重绘 */
-  maskBase64: string;
-  /** 框选区域（画布坐标）—— 决定结果落回画布的哪个位置 */
-  bounds: Rect;
+  /**
+   * 源图在 ComfyUI **input 目录里的文件名**（先经 `uploadImage` 上传）。
+   * ComfyUI 的 LoadImage 只认文件名，**不吃 base64** —— 直接把 base64 塞进
+   * `inputs.image` 会让后端拿不到图。
+   */
+  imageName: string;
+  /** 遮罩文件在 input 目录里的文件名；白色区域 = 需要重绘 */
+  maskName: string;
   checkpoint?: string;
   steps?: number;
   cfg?: number;
@@ -54,31 +56,30 @@ export const DEFAULT_SCHEDULER = "normal";
 export const DEFAULT_DENOISE = 0.75;
 export const DEFAULT_GROW_MASK_BY = 6;
 
-/** 去掉 `data:image/...;base64,` 前缀，只留纯 base64（ComfyUI 只吃纯串） */
-export function stripDataUrlPrefix(value: string): string {
-  const match = /^data:[^;,]*;base64,([\s\S]+)$/i.exec((value ?? "").trim());
-  return (match ? match[1] : (value ?? "")).replace(/\s+/g, "");
+/** 已上传的文件名（必需）：空值属调用方契约错误，宁可早失败也不要产出坏 workflow */
+function requireUploadedName(name: string, field: string): string {
+  const value = (name ?? "").trim();
+  if (!value) {
+    throw new Error(`${field} 为空：请先用 uploadImage() 上传图像，再把返回的文件名传进来`);
+  }
+  return value;
 }
 
 /**
- * 由「框选 + 遮罩 + 提示词」构造 ComfyUI inpaint workflow。
+ * 由「已上传的图像/遮罩 + 提示词」构造 ComfyUI inpaint workflow。
  *
  * 节点图：LoadImage×2（原图 / 遮罩）→ Checkpoint → VAEEncodeForInpaint → KSampler → VAEDecode → SaveImage。
- * 所有数值参数都有默认值，调用方只需给 prompt / image / mask / bounds。
+ * 结果落回画布的坐标不在这里 —— 那是 `toResultCanvasNode` 的职责。
  */
 export function buildInpaintWorkflow(input: InpaintWorkflowInput): ComfyWorkflow {
   return {
     "1": {
       class_type: "LoadImage",
-      inputs: { image: stripDataUrlPrefix(input.imageBase64), upload: "image" },
+      inputs: { image: requireUploadedName(input.imageName, "imageName") },
     },
     "2": {
       class_type: "LoadImageMask",
-      inputs: {
-        image: stripDataUrlPrefix(input.maskBase64),
-        channel: "red",
-        upload: "image",
-      },
+      inputs: { image: requireUploadedName(input.maskName, "maskName"), channel: "red" },
     },
     "3": {
       class_type: "CheckpointLoaderSimple",
@@ -221,7 +222,6 @@ export class ComfyClient {
   private readonly events: ComfyClientEvents;
   private socket: ComfyWebSocketLike | null = null;
   private state: ComfyConnectionState = "idle";
-  private reconnects = 0;
   private manualClose = false;
   private job: PendingJob | null = null;
 
@@ -268,6 +268,7 @@ export class ComfyClient {
       return Promise.reject(new Error(`ComfyUI 基址非法：${this.config.baseUrl || "(空)"}`));
     }
     const url = toWebSocketUrl(this.config.baseUrl, this.clientId);
+    const maxReconnects = this.config.maxReconnects ?? 0;
 
     return new Promise<void>((resolve, reject) => {
       let factory = this.config.webSocketFactory;
@@ -281,48 +282,59 @@ export class ComfyClient {
         factory = (target) => new Ctor(target);
       }
 
-      this.setState(this.reconnects > 0 ? "reconnecting" : "connecting");
-      let socket: ComfyWebSocketLike;
-      try {
-        socket = factory(url);
-      } catch (error) {
-        const wrapped = new Error(
-          `WebSocket 建立失败：${error instanceof Error ? error.message : String(error)}`,
-        );
-        this.fail(wrapped);
-        reject(wrapped);
-        return;
-      }
-      this.socket = socket;
-
-      socket.onopen = () => {
-        this.reconnects = 0;
-        this.setState("connected");
-        resolve();
-      };
-      socket.onmessage = (event) => this.handleMessage(event.data);
-      socket.onerror = () => {
-        // 具体原因由 onclose/超时给出；这里不重复报错，避免噪声
-      };
-      socket.onclose = () => {
-        this.socket = null;
-        if (this.manualClose) {
+      /**
+       * 尝试循环：**无论成功还是最终放弃，这个 promise 都必然 settle**。
+       * 曾经的实现在 `onopen` 之外从不 settle —— 后端不可达时调用方的 loading
+       * 永远退不出来（浏览器实测抓到的挂起）。
+       */
+      const attempt = (retries: number) => {
+        // 重连态在 socket 关闭当刻就已置位（见 onclose），这里不覆盖 ——
+        // 否则退避窗口内 UI 会显示「已连接」而连接其实已经死了。
+        if (retries === 0) this.setState("connecting");
+        let socket: ComfyWebSocketLike;
+        try {
+          socket = factory(url);
+        } catch (error) {
+          const wrapped = new Error(
+            `WebSocket 建立失败：${error instanceof Error ? error.message : String(error)}`,
+          );
           this.setState("closed");
+          this.fail(wrapped);
+          reject(wrapped);
           return;
         }
-        if (this.reconnects < (this.config.maxReconnects ?? 0)) {
-          this.reconnects += 1;
-          this.setState("reconnecting");
-          const delay = (this.config.reconnectDelayMs ?? 500) * this.reconnects;
-          setTimeout(() => {
-            if (this.manualClose) return;
-            void this.connect().catch((error) => this.fail(error));
-          }, delay);
-          return;
-        }
-        this.setState("closed");
-        this.fail(new Error("ComfyUI 连接已断开且重连次数用尽"));
+        this.socket = socket;
+
+        socket.onopen = () => {
+          this.setState("connected");
+          resolve();
+        };
+        socket.onmessage = (event) => this.handleMessage(event.data);
+        socket.onerror = () => {
+          // 具体原因由 onclose 统一给出；这里不重复报错，避免噪声
+        };
+        socket.onclose = () => {
+          this.socket = null;
+          if (this.manualClose) {
+            this.setState("closed");
+            return;
+          }
+          if (retries < maxReconnects) {
+            this.setState("reconnecting");
+            const delay = (this.config.reconnectDelayMs ?? 500) * (retries + 1);
+            setTimeout(() => {
+              if (!this.manualClose) attempt(retries + 1);
+            }, delay);
+            return;
+          }
+          const error = new Error("ComfyUI 连接失败（重连次数用尽）");
+          this.setState("closed");
+          this.fail(error);
+          reject(error);
+        };
       };
+
+      attempt(0);
     });
   }
 
@@ -427,6 +439,41 @@ export class ComfyClient {
       }, this.config.timeoutMs);
       this.job = { promptId: body.prompt_id ?? null, resolve, reject, timer };
     });
+  }
+
+  /**
+   * 上传图像到 ComfyUI（multipart → `/upload/image`），返回**后端可用的文件名**。
+   *
+   * 为什么必须先上传：ComfyUI 的 `LoadImage` / `LoadImageMask` 的 `image` 输入是
+   * 「input 目录里的文件名」，不是图像数据本身 —— 直接把 base64 塞进 workflow
+   * 后端会拿不到图（W30 的 workflow 曾如此，接线时才暴露）。
+   */
+  async uploadImage(
+    filename: string,
+    data: Blob,
+    overwrite = true,
+  ): Promise<string> {
+    if (this.state !== "connected") {
+      throw new Error("尚未连接 ComfyUI，请先 connect()");
+    }
+    const fetchImpl = this.config.fetchImpl ?? globalThis.fetch;
+    if (!fetchImpl) throw new Error("当前环境没有 fetch，请注入 fetchImpl");
+
+    const form = new FormData();
+    form.append("image", data, filename);
+    form.append("overwrite", overwrite ? "true" : "false");
+
+    const response = await fetchImpl(
+      `${this.config.baseUrl.replace(/\/+$/, "")}/upload/image`,
+      { method: "POST", body: form },
+    );
+    if (!response.ok) {
+      throw new Error(`上传图像失败：HTTP ${response.status}`);
+    }
+    const body = (await response.json()) as { name?: string };
+    const name = (body.name ?? "").trim() || filename;
+    if (!name) throw new Error("上传图像失败：后端未返回文件名");
+    return name;
   }
 
   /** 主动关闭（不触发重连） */

@@ -4,7 +4,6 @@ import {
   DEFAULT_CHECKPOINT,
   buildInpaintWorkflow,
   isValidComfyBaseUrl,
-  stripDataUrlPrefix,
   toResultCanvasNode,
   toWebSocketUrl,
   type ComfyBridgeConfig,
@@ -85,13 +84,7 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const fakeFetch = (body: unknown = { prompt_id: "p1", number: 1 }, ok = true) =>
   vi.fn(async () => ({ ok, status: ok ? 200 : 500, json: async () => body })) as unknown as typeof fetch;
 
-describe("stripDataUrlPrefix / 地址工具", () => {
-  it("剥离 data URL 前缀与空白", () => {
-    expect(stripDataUrlPrefix("data:image/png;base64,AAA BBB")).toBe("AAABBB");
-    expect(stripDataUrlPrefix("AAA")).toBe("AAA");
-    expect(stripDataUrlPrefix("")).toBe("");
-  });
-
+describe("地址工具", () => {
   it("http(s) → ws(s)，ws 原样，clientId 被编码", () => {
     expect(toWebSocketUrl("http://127.0.0.1:8188", "c1")).toBe(
       "ws://127.0.0.1:8188/ws?clientId=c1",
@@ -113,9 +106,8 @@ describe("stripDataUrlPrefix / 地址工具", () => {
 describe("buildInpaintWorkflow", () => {
   const wf = buildInpaintWorkflow({
     prompt: "把这里改成一只猫",
-    imageBase64: "data:image/png;base64,IMG",
-    maskBase64: "MASK",
-    bounds: BOUNDS,
+    imageName: "upload_in.png",
+    maskName: "upload_mask.png",
   });
 
   it("包含 inpaint 所需的节点图", () => {
@@ -134,10 +126,10 @@ describe("buildInpaintWorkflow", () => {
     }
   });
 
-  it("提示词与图像进入对应节点，且 base64 已去前缀", () => {
+  it("LoadImage 引用的是**已上传的文件名**（ComfyUI 只认 input 目录里的文件，不吃 base64）", () => {
     expect(wf["5"].inputs.text).toBe("把这里改成一只猫");
-    expect(wf["1"].inputs.image).toBe("IMG");
-    expect(wf["2"].inputs.image).toBe("MASK");
+    expect(wf["1"].inputs.image).toBe("upload_in.png");
+    expect(wf["2"].inputs.image).toBe("upload_mask.png");
     expect(wf["2"].inputs.channel).toBe("red");
   });
 
@@ -154,9 +146,8 @@ describe("buildInpaintWorkflow", () => {
     expect(wf["3"].inputs.ckpt_name).toBe(DEFAULT_CHECKPOINT);
     const custom = buildInpaintWorkflow({
       prompt: "x",
-      imageBase64: "i",
-      maskBase64: "m",
-      bounds: BOUNDS,
+      imageName: "i.png",
+      maskName: "m.png",
       steps: 30,
       cfg: 5,
       seed: 42,
@@ -202,6 +193,70 @@ describe("ComfyClient：连接与握手", () => {
   });
 });
 
+describe("ComfyClient：连接失败必须 settle（回归：曾永久挂起）", () => {
+  it("后端不可达且不给重连 → connect() reject，不挂着", async () => {
+    const { client, sockets, errors } = harness({ maxReconnects: 0 });
+    const promise = client.connect();
+    sockets[0].die(); // 连不上：socket 立刻关闭
+    await expect(promise).rejects.toThrow("连接失败");
+    expect(client.stateValue).toBe("closed");
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it("首次失败但重连成功 → 同一个 promise resolve", async () => {
+    const { client, sockets } = harness({ maxReconnects: 2, reconnectDelayMs: 1 });
+    const promise = client.connect();
+    sockets[0].die();
+    await sleep(20);
+    expect(sockets).toHaveLength(2);
+    sockets[1].open();
+    await expect(promise).resolves.toBeUndefined();
+    expect(client.stateValue).toBe("connected");
+  });
+});
+
+describe("ComfyClient：uploadImage", () => {
+  const uploadFetch = (body: unknown = { name: "key_mask_001.png", subfolder: "", type: "input" }, ok = true) =>
+    vi.fn(async () => ({ ok, status: ok ? 200 : 500, json: async () => body })) as unknown as typeof fetch;
+
+  it("以 multipart 上传，返回后端可用文件名", async () => {
+    const fetchImpl = uploadFetch();
+    const { client, sockets } = harness({ fetchImpl });
+    const connected = client.connect();
+    sockets[0].open();
+    await connected;
+
+    const name = await client.uploadImage(
+      "mask.png",
+      new Blob(["x"], { type: "image/png" }),
+    );
+    expect(name).toBe("key_mask_001.png");
+
+    const [url, init] = (fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } })
+      .mock.calls[0];
+    expect(url).toBe("http://127.0.0.1:8188/upload/image");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.body as FormData).get("image")).toBeTruthy();
+    expect((init.body as FormData).get("overwrite")).toBe("true");
+  });
+
+  it("上传失败 → reject 带 HTTP 状态；未连接 → 明确报错", async () => {
+    const { client, sockets } = harness({ fetchImpl: uploadFetch({}, false) });
+    const connected = client.connect();
+    sockets[0].open();
+    await connected;
+    await expect(
+      client.uploadImage("a.png", new Blob(["x"], { type: "image/png" })),
+    ).rejects.toThrow("HTTP 500");
+
+    const idle = harness();
+    await expect(
+      idle.client.uploadImage("a.png", new Blob(["x"], { type: "image/png" })),
+    ).rejects.toThrow("尚未连接");
+  });
+});
+
 describe("ComfyClient：生成状态流", () => {
   it("提交 workflow 并解析进度 / 节点 / 产出图像", async () => {
     const fetchImpl = fakeFetch();
@@ -212,9 +267,8 @@ describe("ComfyClient：生成状态流", () => {
 
     const wf = buildInpaintWorkflow({
       prompt: "x",
-      imageBase64: "i",
-      maskBase64: "m",
-      bounds: BOUNDS,
+      imageName: "in.png",
+      maskName: "mask.png",
     });
     const promise = client.generate(wf);
     await flush();
@@ -263,7 +317,7 @@ describe("ComfyClient：生成状态流", () => {
     const { client } = harness();
     await expect(
       client.generate(
-        buildInpaintWorkflow({ prompt: "x", imageBase64: "i", maskBase64: "m", bounds: BOUNDS }),
+        buildInpaintWorkflow({ prompt: "x", imageName: "in.png", maskName: "mask.png" }),
       ),
     ).rejects.toThrow("尚未连接");
   });
@@ -275,7 +329,7 @@ describe("ComfyClient：生成状态流", () => {
     await connected;
     await expect(
       client.generate(
-        buildInpaintWorkflow({ prompt: "x", imageBase64: "i", maskBase64: "m", bounds: BOUNDS }),
+        buildInpaintWorkflow({ prompt: "x", imageName: "in.png", maskName: "mask.png" }),
       ),
     ).rejects.toThrow("HTTP 500");
   });
@@ -287,7 +341,7 @@ describe("ComfyClient：生成状态流", () => {
     await connected;
     await expect(
       client.generate(
-        buildInpaintWorkflow({ prompt: "x", imageBase64: "i", maskBase64: "m", bounds: BOUNDS }),
+        buildInpaintWorkflow({ prompt: "x", imageName: "in.png", maskName: "mask.png" }),
       ),
     ).rejects.toThrow("生成超时（20ms）");
   });
@@ -298,7 +352,7 @@ describe("ComfyClient：生成状态流", () => {
     sockets[0].open();
     await connected;
     const promise = client.generate(
-      buildInpaintWorkflow({ prompt: "x", imageBase64: "i", maskBase64: "m", bounds: BOUNDS }),
+      buildInpaintWorkflow({ prompt: "x", imageName: "in.png", maskName: "mask.png" }),
     );
     await flush();
     sockets[0].emit({ type: "error", data: { message: "model not found" } });
