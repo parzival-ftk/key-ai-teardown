@@ -1,7 +1,7 @@
 # HANDOFF · KEY（AI 产品拆解助手）
 
 > 本文档写给**没有任何上下文**的接手者（agent 或人）。全文自包含，不引用任何会话记录。
-> 仓库：`D:\yinyong\Tianshu\KEY` ｜ 分支：`main` ｜ 撰写时 HEAD：`cec9cb5` ｜ 日期：2026-09-15（W17–W30 后更新）
+> 仓库：`D:\yinyong\Tianshu\KEY` ｜ 分支：`main` ｜ 撰写时 HEAD：`372aee0`（W31 画布接线功能提交）｜ 日期：2026-09-15（W17–W31 后更新）
 > 位置：`docs\HANDOFF.md` —— W22 起从 `.rivet\` 迁出，纳入版本管理随仓库分发（原先在 `.rivet\` 下不受 git 跟踪）。
 
 ---
@@ -26,7 +26,7 @@
 |---|---|
 | `npm run lint` | exit 0（0 problems） |
 | `npm run typecheck` | exit 0 |
-| `npm run test` | **979 条 / 977 通过 / 100 files**（另 2 条为已知并行偶发，见坑 #15；单文件跑必过） |
+| `npm run test` | **979 passed / 100 files**（连续两次全量跑均全绿） |
 | `npm run build` | exit 0 |
 
 其它入口：`npm run dev`（开发）· `npm run demo`（对已运行的 dev server 冒烟校验 5 个端点）· `npm run eval`（质量门禁 CLI，见下）。
@@ -158,11 +158,56 @@
 - `lib\resources\resource-prompt.ts`：`RESOURCE_EXTRACTION_SYSTEM_PROMPT` / `buildResourceExtractionPrompt`（自动带上已收录 id 与已有标签词表）
 - `app\resources\page.tsx` + `components\resources\{ResourceNav,ResourceExtendPanel}.tsx`；首页有「UI 资源库 →」入口
 
-**W29/W30：无限画布与 ComfyUI 桥接（`/canvas`）**
+**W29–W31：无限画布、ComfyUI 桥接与画布接线（`/canvas`）**
 - `lib\canvas\viewport.ts`：`screenToCanvas` / `canvasToScreen` / `panBy` / `zoomAt`（**锚点不变量**：缩放前后光标下的画布点原地不动）/ `fitToRect` / `formatZoom`
 - `lib\canvas\canvas-node.ts`：`createCanvasNode` / `moveNodes` / `resizeNode`（对侧边固定 + 最小边长夹取）/ `nodesInRect` / `hitTest` / `bringToFront` / `sendToBack`
-- `components\canvas\CanvasViewport.tsx`：Pointer Events 手势（Space/中键平移、Ctrl+滚轮以光标为锚点缩放、框选、8 手柄拉伸）+ 悬浮工具栏 + 图层面板 + 属性面板
-- `lib\canvas\comfy-bridge.ts`：`buildInpaintWorkflow` / `ComfyClient`（WebSocket 与 fetch 可注入 → 握手校验 / 进度 / 执行节点 / 产出图像 / 重连 / 超时）/ `toResultCanvasNode`（结果落回框选坐标）
+- `components\canvas\CanvasViewport.tsx`：Pointer Events 手势（Space/中键平移、Ctrl+滚轮以光标为锚点缩放、框选、8 手柄拉伸）+ 悬浮工具栏 + 图层面板 + 属性面板；**W31 起含 ComfyUI 浮条与生成状态机**、粘贴/拖入图片、`data-canvas-comfy-url`
+- `lib\canvas\comfy-bridge.ts`：`buildInpaintWorkflow` / `ComfyClient`（WebSocket 与 fetch 可注入 → 握手校验 / 进度 / 执行节点 / 产出图像 / 重连 / 超时 / **`uploadImage`**）/ `toResultCanvasNode`（结果落回框选坐标）
+- 测试：`lib\canvas\{viewport,canvas-node,comfy-bridge}.test.ts`（55 条）、`components\canvas\{canvas-viewport,canvas-inpaint}.test.tsx`（17 条）
+
+### W31 架构决定：画布 → ComfyUI 的完整链路
+
+一次 inpaint 的事实流（每个箭头都是一条可核验的调用）：
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant CV as CanvasViewport
+  participant B as ComfyClient
+  participant S as ComfyUI
+  U->>CV: 选 image 节点 + 输入 Prompt + 点「✨ ComfyUI Inpaint」
+  CV->>CV: canInpaint 门禁（type=image 且有 src）
+  CV->>B: createClient(baseUrl, events)
+  B->>S: WS /ws?clientId=…
+  S-->>B: onopen → 状态 connected
+  CV->>CV: loadImageBlob(src) 与 createMask(w,h) 并行
+  CV->>B: uploadImage(原图) / uploadImage(遮罩)
+  B->>S: POST /upload/image（multipart）
+  S-->>B: { name }
+  CV->>B: generate(buildInpaintWorkflow({prompt, imageName, maskName}))
+  B->>S: POST /prompt
+  S-->>B: progress / executing / executed
+  B-->>CV: onProgress / onExecutingNode / onImage
+  CV->>CV: toResultCanvasNode(result, bounds) → 落在原选区坐标
+```
+
+**1. 环境边界抽象 `InpaintPorts`（W31 最重要的结构决定）**
+把三件与浏览器/网络打交道的事抽成可注入端口：`createClient`（建立 `ComfyClient`）、`loadImageBlob`（把节点 `src` 取成 `Blob`）、`createMask`（按选区尺寸画白底 PNG，白=重绘区）。缺省实现就是浏览器真货。
+收益：集成测试只需替身**这三个边界**，而 `ComfyClient`、`buildInpaintWorkflow`、视口数学、图层操作**全部真实参与** —— 单测不会因为把整条链都 mock 掉而掩盖接线缺陷。
+
+**2. ComfyUI 协议修正（W30 的设计在此被证伪并纠正）**
+- `LoadImage` / `LoadImageMask` 的 `image` 输入是 **input 目录里的文件名**，不是图像数据。W30 把 base64 直接塞进 `inputs.image`，后端拿不到图。现在必须先 `POST /upload/image`（multipart：`image` 文件 + `overwrite`），再用返回的文件名建 workflow。
+- `buildInpaintWorkflow` 入参随之由 `imageBase64` / `maskBase64` 改为 `imageName` / `maskName`；原 `bounds` 参数**移除**——它从未被 workflow 读取，落点属 `toResultCanvasNode` 的职责（死参数会误导调用方）。
+- 因此 `stripDataUrlPrefix` 变成死导出，一并删除。
+
+**3. `connect()` 的状态机修正（曾永久挂起）**
+原实现只在 `onopen` 里 resolve —— 后端不可达时 promise **永不 settle**，UI 的 loading 再也退不出来。改为「尝试循环」：同一个 promise、重连在循环内调度、次数用尽即 `reject`。配套不变量：**重连态在 socket 关闭当刻置位**，否则退避窗口内 `state` 仍报 `connected` 而连接已死。
+
+**4. 画布侧状态机**
+`promptText / isGenerating / progress / genError / comfyState` 五个状态；按钮文案随连接阶段变化（`连接中… → 重连中… → 生成中…`），失败统一落 `genError`，`finally` 关连接并复位状态。一次生成一个 WebSocket（本地够用；连续生成场景应改为复用连接）。
+
+**5. UI 前置条件：画布上得先有图**
+`canInpaint` 要求 `type === "image" && node.src`，而画布工具只能造 frame / prompt / component —— **Inpaint 按钮原本永远不可达**。因此补了「**粘贴（Ctrl+V）/ 拖入图片 → image 节点**」，这个门禁才有意义。这类「功能齐备但入口不可达」的缺口，单看组件是看不出来的。
 
 ### 测试与验收方式（可复现）
 
@@ -237,6 +282,7 @@
 13. **JSX 属性里的 `\n` 是字面量，不是转义** —— 给组件传多行文本必须用表达式形式 `code={"a\nb"}`；写成 `code="a\nb"` 会静默传成「含反斜杠的单行」，组件不报错、行为却不对（W18 踩）。
 14. **「编辑器以 props.code 当还原基准」是陷阱** —— 应用修改后父层 code 随之变化，还原会还原成刚应用的版本。基准要在打开时冻结（`useState(code)`），并单独跟踪「已同步版本」用于脏标记（W19 踩）。
 15. **跨越「子→父→子」重渲染链路的 React 断言，全量并行跑时会偶发失败** —— 单文件连跑 10/10 通过**不能**证明无问题（W19 的用例在全量 5 次内偶发 1 次）。判据：单文件稳定 + 全量偶发 = 调度抖动而非逻辑缺陷。修法是**有界等待**：轮询到条件成立即返回，行为真坏了仍超时抛原断言错误（不掩盖缺陷）。
+    **W31 补充（踩过一次才找对）**：套件涨到 100 文件后，这两条用例的实际瓶颈不是等待上界，而是 **vitest 默认的 5000ms 用例超时** —— 单文件 1.2s、全量并行 >5s（模块转换与 GC 争用）。当时我只把 `waitFor` 上界从 2000 提到 6000，**反而更糟**：上界高过用例超时，条件一旦不即时成立就必然「Test timed out」，而错误信息里根本看不到原始断言。正确做法是**按文件给足时间预算**（`vi.setConfig({ testTimeout: 20_000 })`），并让有界等待的上界**低于**它。教训：超时类红要先分清是「断言没满足」还是「用例被掐断」，`Test timed out in 5000ms` 与 `AssertionError` 是两回事。
 16. **验证 React 交互时，点击与读取必须分两次求值并留间隔** —— 在同一次 `page.evaluate` 里 `click()` 后立刻读 `className`，React 尚未重渲染，会得到**假阴性**。判据：若「打印的 DOM 值正常但断言失败」，先怀疑测量而不是实现。
 
 **数据流与引擎**
@@ -261,3 +307,5 @@
 28. **`browser_debug` 的持久 profile 可能被其它会话占用**（报「该浏览器正在另一个浏览器会话中打开」）。此时加 `headless: true` 可绕开；仍不行则自建 CDP 脚本（系统 Chrome + 临时 profile）。
 29. **`next dev` 的编译 worker 崩溃时表现为「静态路由 200、未编译过的动态路由 500」**，日志是 `Jest worker encountered 2 child process exceptions`。判定是否为代码回归用 `npm run build`（不走 dev worker）—— build 通过即说明是环境态，重启 dev server 即可。
 30. **`/favicon.ico` 恒为 404**（项目没有 favicon 文件），浏览器控制台那条 404 是它，属既有无害，不要当 bug 修。
+31. **Chromium 对一个「被拒绝」的 WebSocket 建连各耗约 2 秒** —— 所以「不可达后端 → 错误提示 + 状态复位」这条链路要走 **~4.0–4.5s**（两次尝试 + 400ms 退避）才收尾。在 2.5s 时读 DOM 会得出「卡死在生成中」的**假缺陷**（W31 实测踩到，轮询到 4.5s 才看到错误与复位）。判据仍是「打印值正常但断言失败 → 先怀疑测量」；验异步失败态要**轮询到状态稳定**，别用固定短等待。也正因这段等待不短，界面必须显式区分 `连接中… / 重连中… / 生成中…`，否则用户无从判断是在等什么。
+32. **测试里取类构造器参数不能用 `Parameters<typeof SomeClass>`** —— TS 会把 `typeof Class` 解析成构造函数类型、`Parameters<>` 取不到实参类型，报一串 `TS2345 ... not assignable to parameter of type 'undefined'`（测试本身能过，只有 typecheck 红）。改用导出的配置类型（如 `Partial<ComfyBridgeConfig>`）。这就是「vitest 绿 ≠ typecheck 绿」的又一例，两者必须都跑。
