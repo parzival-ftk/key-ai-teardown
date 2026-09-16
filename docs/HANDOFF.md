@@ -26,15 +26,17 @@
 |---|---|
 | `npm run lint` | exit 0（0 problems） |
 | `npm run typecheck` | exit 0 |
-| `npm run test` | **972 passed / 99 files** |
+| `npm run test` | **979 条 / 977 通过 / 100 files**（另 2 条为已知并行偶发，见坑 #15；单文件跑必过） |
 | `npm run build` | exit 0 |
 
 其它入口：`npm run dev`（开发）· `npm run demo`（对已运行的 dev server 冒烟校验 5 个端点）· `npm run eval`（质量门禁 CLI，见下）。
 
-### 本会话完成的工作（W22–W30，按提交倒序；共 11 提交）
+### 本会话完成的工作（W22–W31，按提交倒序；共 13 提交）
 
 | 提交 | 内容 |
 |---|---|
+| `372aee0` | feat(w31)：画布接通 ComfyUI Inpaint（选区浮条 + 粘贴/拖入图片 + 上传 → 提交 → 进度 → 落图） |
+| `1e4dec8` | fix(w30)：修 `connect()` 永久挂起 + LoadImage 契约（改用已上传文件名 + `uploadImage`） |
 | `cec9cb5` | feat(w30)：ComfyUI 桥接（inpaint workflow 构造 + WebSocket 状态流 + 结果落回画布坐标） |
 | `9d9f42b` | feat(w29)：Figma 式无限画布（视口数学 + 图层模型 + Pointer Events 交互组件 + `/canvas` 页） |
 | `72c8eee` | fix(w28)：收紧资源校验契约（id 格式 / 简介上限提为共享常量）并接通标签词表 |
@@ -175,12 +177,11 @@
 ## 当前卡点
 
 1. **真实 LLM 行为（W22–W27 期间部分解决）**。W25 真机验证确认本机 `.env` **配了可用的多模态 key**（上游返回 400 invalid_request_error 而非 401），`/api/parse` 的 `diagram` 通道已用真实架构图跑通（返回 `flowchart LR` / 4 节点 / 置信度 87%）。**仍未验证**：`npm run eval` 的 judge 打分、编队各 Agent 的真实产出质量（仍是 stub / 确定性输入）。
-2. **ComfyUI 桥接的真实后端链路未验证（W30 遗留）**。`lib\canvas\comfy-bridge.ts` 的状态机（握手 / 进度 / 执行节点 / 图像 / 重连 / 超时）由 21 条单测覆盖（注入假 WebSocket 与假 fetch），但**没有连过真实 ComfyUI**：workflow 的节点图是按 ComfyUI API 格式手写的，`LoadImageMask` 的 channel 语义、`VAEEncodeForInpaint` 的 `grow_mask_by` 取值、以及 `/view` 的 URL 形状都需要对着真实实例校准。本机无 ComfyUI。
-3. **画布未与 ComfyUI 前端接线（W30 遗留）**。桥接模块与 `CanvasViewport` 目前各自独立：框选 → `buildInpaintWorkflow` → `ComfyClient.generate` → `toResultCanvasNode` 这条链**没有 UI 入口**（无「发送到 ComfyUI」按钮），属半成品边界，接手时需明确。
-4. **红队拦截态的浏览器呈现未验证**。`/sample` 在浏览器里验的是「干净态」；拦截态（blocked>0、降级日志）只有 SSR 测试覆盖。
-5. **serverless 无头渲染未做**（W8 遗留）。headless 依赖本机 Chrome/Edge；Vercel 等 serverless 无浏览器会**自动降级**为正文抓取。
-6. **窄屏适配未做**：DAG 拓扑图、雷达图、加权排名表、Diff 双栏、无限画布的图层面板/属性面板在窄屏是挤压或横滚。
-7. **历史相关 UI 分处两地**：`components\history-list.tsx`（列表）与 `components\history\`（Diff 视图与弹窗）。合并需要一次文件移动（破坏性操作，未做）。
+2. **ComfyUI 的真实后端链路仍未验证（W30/W31 遗留）**。桥接的状态机与画布的接线（上传 → 提交 → 进度 → 落图）由 25 条单测 + 4 条集成测试覆盖（真 `ComfyClient`、真 `buildInpaintWorkflow`，只替身 WebSocket / fetch / `canvas.toBlob` 三个环境边界），浏览器里也验到了「不可达后端 → 错误提示 + 状态复位」。但**没有连过真实 ComfyUI**：`LoadImageMask` 的 channel 语义、`VAEEncodeForInpaint` 的 `grow_mask_by`、`/upload/image` 的多字段约定、`/view` 的 URL 形状都需要对着真实实例校准。本机无 ComfyUI。启动真实实例时记得 `python main.py --enable-cors-header`（跨域）并核对 `ckpt_name` 与本地模型文件名一致。
+3. **红队拦截态的浏览器呈现未验证**。`/sample` 在浏览器里验的是「干净态」；拦截态（blocked>0、降级日志）只有 SSR 测试覆盖。
+4. **serverless 无头渲染未做**（W8 遗留）。headless 依赖本机 Chrome/Edge；Vercel 等 serverless 无浏览器会**自动降级**为正文抓取。
+5. **窄屏适配未做**：DAG 拓扑图、雷达图、加权排名表、Diff 双栏、无限画布的图层面板/属性面板在窄屏是挤压或横滚。
+6. **历史相关 UI 分处两地**：`components\history-list.tsx`（列表）与 `components\history\`（Diff 视图与弹窗）。合并需要一次文件移动（破坏性操作，未做）。
 
 ---
 
