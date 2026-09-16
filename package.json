@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "stub:llm": "node e2e/stub-llm-server.mjs",
     "demo": "node scripts/demo-smoke.mjs",
+    "stub:comfy": "node e2e/stub-comfy-server.mjs",
+    "comfy:doctor": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/comfy-doctor.ts",
     "eval": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/run-eval.ts"
   },
   "dependencies": {
