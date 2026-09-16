@@ -48,6 +48,18 @@
 
 **不看 LLM 也能验的页面**：`/sample`、`/compare/sample`、`/resources`、`/canvas`（画布除了 ComfyUI 那一步，其余全部本地可验）。
 
+**环境快照**（2026-09-15 实测；接手前请再核一遍，可能已变）
+
+| 项 | 实测值 |
+|---|---|
+| 操作系统 / shell | Windows 10.0.26200 ｜ Git Bash |
+| Node / Python | Node v24.18.0 ｜ Python 3.14.7（Key 本身不用 Python；ComfyUI 需要） |
+| 分支 / HEAD | `main` ｜ `06d64de`（无未提交源码改动，仅 3 个未跟踪基建文件） |
+| 四门禁 | lint 0 problems · typecheck exit 0 · test **979 passed / 100 files** · build 成功（四者串联 exit 0） |
+| LLM 配置 | `.env` 存在；`GET /api/health` **真机调用成功** → `model: "deepseek-flash"` + 真实 token 用量。即分析主路径当前是**活的** |
+| ComfyUI | **本机未安装 / 未运行**：8188 无监听，`C:\ComfyUI`、`C:\ComfyUI_windows_portable`、`D:\ComfyUI*`、`~/ComfyUI` 均不存在 |
+| 运行时目录 | `.rivet/`（未纳入版本管理）—— `plans/` 存实现计划与下一阶段路线图；`artifacts/` 存浏览器实测截图 |
+
 ---
 
 ## 已完成
