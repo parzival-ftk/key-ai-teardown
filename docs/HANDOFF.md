@@ -18,6 +18,38 @@
 
 ---
 
+## 项目全景（接手先读这一节）
+
+**规模**（撰写时实测）：239 个 ts/tsx 源文件 · 12,977 行 · 100 个测试文件 · 979 条用例 · 87 次提交（W1–W31）。
+
+**页面（10 个路由）**
+
+| 路由 | 用途 |
+|---|---|
+| `/` | 首页：LLM 配置状态 + 输入表单（产品名 / 描述 / 竞品 / 截图 / PDF / URL） |
+| `/analyze/[id]` | 分析实时过程：流式文本视图 ↔ DAG 拓扑视图 |
+| `/report/[id]` | **报告页（核心）**：10 段拆解 + 质量看板 + 推理时间轴/思维树 + 分支干预 + 图谱编辑 + 截图还原 + 多格式导出 |
+| `/sample` | 内置样例报告（无 key / 断网也能完整演示） |
+| `/compare` · `/compare/[id]` · `/compare/sample` | 多产品对比：加权雷达图 + 排名重算 + 样例 |
+| `/history` | 本地历史：回看 / 删除 / 勾选两份做交互式 Diff |
+| `/resources` | UI 资源库：22 个外部设计资源，分类 Tabs + 实时搜索 |
+| `/canvas` | Figma 式无限画布 + ComfyUI Inpaint |
+| `/api/*` | `analyze`(SSE) · `compare`(SSE) · `export`(5 格式) · `parse`(5 通道) · `health` |
+
+**命令**
+
+| 命令 | 用途 |
+|---|---|
+| `npm run dev` | 开发服务器（本机同一时刻只允许一个实例） |
+| `npm run lint` / `typecheck` / `test` / `build` | 四门禁（四个都要跑：vitest 绿 ≠ typecheck 绿） |
+| `npm run stub:llm` | 起 stub LLM 服务（8787）；把 `LLM_BASE_URL` 指向它即可**零成本**跑通全部 LLM 路径 |
+| `npm run demo` | 对已运行的 dev server 冒烟校验 5 个端点 |
+| `npm run eval` | 离线质量门禁（4 维打分 + 门槛，不过 exit 1） |
+
+**不看 LLM 也能验的页面**：`/sample`、`/compare/sample`、`/resources`、`/canvas`（画布除了 ComfyUI 那一步，其余全部本地可验）。
+
+---
+
 ## 已完成
 
 ### 门禁现状（撰写时实测，命令可复现）
@@ -250,13 +282,15 @@ sequenceDiagram
 
 按优先级，每条都可立即执行：
 
-1. **跑真实模型的 eval 与一次端到端分析**。配置 `.env`（`LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL`）后：`npm run eval`（看 4 维打分是否合理、门禁是否过）；再 `npm run dev` → 首页输入一个产品 → 看报告页的 PRD 段是否有**合法 mermaid 图**、质疑段是否有 `C1.` 编号、PRD 里是否有 `[Cn]` 标记、竞品段是否出现**雷达图**。**这是当前最大的未知，优先做。**
-2. **浏览器验证红队拦截态**。让报告里出现一条 `verified` 但 `source` 为空的证据（可手工构造或写一个只回伪造元数据的 stub REPLY），然后在报告页确认 `[data-red-team-blocked]` > 0 且降级日志可见。
-3. **把「提交后核对」固化成脚本**。`deliver_task` 历史上漏带过文件，本会话则两次遇到**上下文注入的 `<git-status>` 块不完整**（漏报已改文件）。建议写 `scripts/check-commit.mjs`：提交后比对 `git status --porcelain` 与 `git show --name-only --format="" HEAD`，有差异就报警。
-4. **统一「交付面板」**：把报告页顶部散落的导出入口（报告 Markdown / PRD Issues / Figma JSON / XState）与「哪些段被人工改写过」收敛成一个面板 —— 让「AI 产出 → 人工调校 → 交付」在 UI 上可见。
-5. **人工改动记录（可审计性收口）**：记录本次分析中改过的图谱、调过的权重、导出过的产物，并可导出。做完它，W21 的 Diff 就有了更细的粒度（对比两种调校方案，而不只是两份报告）。
-6. **窄屏适配**（可选）：DAG / 雷达图 / 排名表 / Diff 双栏在窄屏改为缩放或折叠。
-7. **serverless 无头渲染**（高成本、需外部环境）：接入 `@sparticuz/chromium` 或外部渲染服务，并在 Vercel 上实测；做不到就维持「线上自动降级」并保留 README 说明。
+1. **校准 ComfyUI 真实后端（当前最大的未知）**。本机无 ComfyUI，`lib\canvas\comfy-bridge.ts` 的节点图是按 API 格式手写的、**从未对过真实实例**。要核的是：`LoadImageMask` 的 `channel` 语义、`VAEEncodeForInpaint` 的 `grow_mask_by` 取值、`POST /upload/image` 的字段约定（`image` 文件 + `overwrite`）、`/view?filename=…` 的 URL 形状，以及 `ckpt_name` 是否与本地模型文件名一致。启动方式 `python main.py --enable-cors-header`（跨域），页面右侧属性面板可改服务地址。
+2. **跑真实模型的 eval 与一次端到端分析**。本机 `.env` 已确认有可用的多模态 key（W25 真机验过 `/api/parse` 的 `diagram` 通道）；喂一个支持对话的模型给 `LLM_MODEL` 后跑 `npm run eval`（看 4 维打分是否合理、门禁是否过），再走一次首页 → 报告页的完整分析，检查 PRD 段是否有**合法 mermaid 图**、质疑段是否有 `C1.` 编号、PRD 里是否有 `[Cn]` 标记、竞品段是否出现**雷达图**。
+3. **浏览器验证红队拦截态**。让报告里出现一条 `verified` 但 `source` 为空的证据（手工构造，或写一个只回伪造元数据的 stub REPLY），然后在报告页确认 `[data-red-team-blocked]` > 0 且降级日志可见。
+4. **把「提交后核对」固化成脚本**。`deliver_task` 历史上漏带过文件，且**上下文注入的 `<git-status>` 块多次不完整**（W20/W21/W26/W28/W29 均漏报已改文件，本会话共 5 次）。建议写 `scripts/check-commit.mjs`：提交后比对 `git status --porcelain` 与 `git show --name-only --format="" HEAD`，有差异就报警。
+5. **画布与 ComfyUI 的连接复用**。当前一次生成新建一个 WebSocket、结束即关；连续生成场景应改为复用连接（并给 ComfyClient 加连接池或长连接生命周期）。
+6. **人工改动记录（可审计性收口）**：记录本次分析中改过的图谱、调过的权重、导出过的产物，并可导出。做完它，W21 的 Diff 就有了更细的粒度（对比两种调校方案，而不只是两份报告）。
+7. **统一「交付面板」**：把报告页顶部散落的导出入口（报告 Markdown / PRD Issues / Figma JSON / XState）与「哪些段被人工改写过」收敛成一个面板 —— 让「AI 产出 → 人工调校 → 交付」在 UI 上可见。
+8. **窄屏适配**（可选）：DAG 拓扑图 / 雷达图 / 加权排名表 / Diff 双栏 / 无限画布的侧面板在窄屏是挤压或横滚。
+9. **serverless 无头渲染**（高成本、需外部环境）：接入 `@sparticuz/chromium` 或外部渲染服务，并在 Vercel 上实测；做不到就维持「线上自动降级」并保留 README 说明。
 
 ---
 
