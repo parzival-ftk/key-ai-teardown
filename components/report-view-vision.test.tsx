@@ -16,6 +16,13 @@ import { ReportView, type ReportData } from "./report-view";
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
+ * 本条用例挂载 W19 编辑器，而编辑器内含动态 `import("mermaid")` 的预览；
+ * 全量并行跑（100 文件）时模块转换与 GC 争用会让它远超默认的 5s 用例超时。
+ * 放宽的是**时间预算**，断言内容一字未动 —— 行为真坏了仍会超时抛出原始断言错误。
+ */
+vi.setConfig({ testTimeout: 20_000 });
+
+/**
  * W26 集成：报告页「从截图还原图谱」全链路 ——
  * 图谱工具栏入口 → 截图识别 Modal → 直接替换 PRD 围栏 / 交棒 W19 编辑器后写回。
  */
@@ -90,6 +97,25 @@ describe("报告页 W26：从截图还原图谱", () => {
   const viewerSource = () =>
     container.querySelector("[data-mermaid-source]")?.textContent ?? "";
 
+  /**
+   * 有界等待（HANDOFF 坑 #15 的方子）：跨越「子→父→子」重渲染链路的断言，
+   * 在全量并行跑时会被调度抖动拖慢；轮询到条件成立即返回，**行为真坏了仍超时抛原断言错误**。
+   */
+  const waitFor = async (assert: () => void, timeoutMs = 15000) => {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        assert();
+        return;
+      } catch (error) {
+        if (Date.now() > deadline) throw error;
+        await act(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        });
+      }
+    }
+  };
+
   /** 打开识别 Modal 并投入一张图片，等待识别结果 */
   const extract = async () => {
     act(() => $('[data-mermaid-action="extract-from-image"]').click());
@@ -133,12 +159,14 @@ describe("报告页 W26：从截图还原图谱", () => {
     const source = container.querySelector(
       "[data-editor-source]",
     ) as HTMLTextAreaElement;
-    expect(source.value).toContain("Gateway[API Gateway]");
+    await waitFor(() => expect(source.value).toContain("Gateway[API Gateway]"));
 
     await act(async () => {
       (container.querySelector('[data-editor-action="apply"]') as HTMLElement).click();
     });
-    expect(viewerSource()).toContain("Gateway[API Gateway]");
+    await waitFor(() =>
+      expect(viewerSource()).toContain("Gateway[API Gateway]"),
+    );
     expect(container.querySelector('[data-prd-ref="C1"]')).not.toBeNull();
   });
 });

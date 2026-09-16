@@ -19,6 +19,12 @@ import { ReportView, type ReportData } from "./report-view";
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
+ * 本文件挂载真实 mermaid 预览组件；全量并行跑（100 文件）时模块转换与 GC 争用
+ * 会让单条用例远超默认的 5s 超时。放宽的是**时间预算**，断言内容一字未动。
+ */
+vi.setConfig({ testTimeout: 20_000 });
+
+/**
  * W19 · 报告页「图谱编辑 → PRD 双向同步」集成测试。
  * 验证需求 3：编辑后必须同时反映在 **PRD 正文（含 [Cn] 锚点）**、**图谱渲染** 与 **导出内容** 上。
  */
@@ -97,8 +103,11 @@ describe("报告页：图谱编辑与 PRD 双向同步（W19）", () => {
    * 该文件的断言跨越「子组件 → 父组件 → 子组件重渲染」的链路，在全量并行跑时
    * 偶发被调度抖动拖慢（单文件 10/10 通过、全量并行偶发一次）。轮询到条件成立即返回；
    * 若行为真的坏了，仍会在超时后抛出原始断言错误 —— 不掩盖缺陷。
+   *
+   * 上界取 6000ms：套件已有 100 个文件，调度抖动比 W19 写下 2000ms 时更大
+   * （实测全量并行下这两条用例耗时可达 1.2s+，余量不足会假红）。
    */
-  const waitFor = async (assert: () => void, timeoutMs = 2000) => {
+  const waitFor = async (assert: () => void, timeoutMs = 6000) => {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       try {
