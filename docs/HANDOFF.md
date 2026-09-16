@@ -295,6 +295,7 @@ sequenceDiagram
 按优先级，每条都可立即执行：
 
 1. **校准 ComfyUI 真实后端（当前最大的未知）**。本机无 ComfyUI，`lib\canvas\comfy-bridge.ts` 的节点图是按 API 格式手写的、**从未对过真实实例**。要核的是：`LoadImageMask` 的 `channel` 语义、`VAEEncodeForInpaint` 的 `grow_mask_by` 取值、`POST /upload/image` 的字段约定（`image` 文件 + `overwrite`）、`/view?filename=…` 的 URL 形状，以及 `ckpt_name` 是否与本地模型文件名一致。启动方式 `python main.py --enable-cors-header`（跨域），页面右侧属性面板可改服务地址。
+   **入口：`docs\comfyui-calibration.md`（校准清单）+ `npm run comfy:doctor`（把清单做成可机械核验——借 ComfyUI 的 `/object_info` 逐节点比对，有 fail 即 exit 1）**。想先看链路而不装 ComfyUI：`npm run stub:comfy` 起本仓自带的假实例（HTTP + 手写 WebSocket，只回占位图），`/canvas` 的整条 inpaint 链路已用它验通过。
 2. **跑真实模型的 eval 与一次端到端分析**。本机 `.env` 已确认有可用的多模态 key（W25 真机验过 `/api/parse` 的 `diagram` 通道）；喂一个支持对话的模型给 `LLM_MODEL` 后跑 `npm run eval`（看 4 维打分是否合理、门禁是否过），再走一次首页 → 报告页的完整分析，检查 PRD 段是否有**合法 mermaid 图**、质疑段是否有 `C1.` 编号、PRD 里是否有 `[Cn]` 标记、竞品段是否出现**雷达图**。
 3. **浏览器验证红队拦截态**。让报告里出现一条 `verified` 但 `source` 为空的证据（手工构造，或写一个只回伪造元数据的 stub REPLY），然后在报告页确认 `[data-red-team-blocked]` > 0 且降级日志可见。
 4. **把「提交后核对」固化成脚本**。`deliver_task` 历史上漏带过文件，且**上下文注入的 `<git-status>` 块多次不完整**（W20/W21/W26/W28/W29 均漏报已改文件，本会话共 5 次）。建议写 `scripts/check-commit.mjs`：提交后比对 `git status --porcelain` 与 `git show --name-only --format="" HEAD`，有差异就报警。
