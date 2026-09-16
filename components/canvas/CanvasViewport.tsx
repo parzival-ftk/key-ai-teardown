@@ -659,6 +659,22 @@ export function CanvasViewport({
                 <span className="pointer-events-none absolute left-1 top-0.5 text-[10px] text-gray-400">
                   {node.label ?? NODE_TYPE_LABEL[node.type]}
                 </span>
+                {/* 图片节点要真的把图画出来 —— 否则「结果落回画布」只能看出一只空框 */}
+                {node.src ? (
+                  // 画布内图片：来源是用户本机图片或生成结果，非远端资源
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    data-canvas-node-image={node.id}
+                    src={node.src}
+                    alt={node.label ?? "画布图片"}
+                    draggable={false}
+                    className="h-full w-full rounded-lg object-cover"
+                  />
+                ) : node.text ? (
+                  <p className="h-full w-full overflow-hidden whitespace-pre-wrap break-words p-2 pt-4 text-[10px] leading-tight text-gray-600 dark:text-gray-300">
+                    {node.text}
+                  </p>
+                ) : null}
               </div>
             );
           })}

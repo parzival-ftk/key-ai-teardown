@@ -207,4 +207,43 @@ describe("CanvasViewport 交互（jsdom）", () => {
     act(() => $('[data-canvas-layer="a"]').click());
     expect(container.querySelectorAll("[data-canvas-handle]")).toHaveLength(8);
   });
+
+  it("图片节点真的把图画出来（回归：曾只画空框，看不出「结果落回画布」）", () => {
+    mount([
+      {
+        id: "img-1",
+        type: "image",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        zIndex: 1,
+        src: "data:image/png;base64,AAAA",
+        label: "生成结果",
+      },
+    ]);
+    const img = container.querySelector(
+      '[data-canvas-node-image="img-1"]',
+    ) as HTMLImageElement;
+    expect(img).not.toBeNull();
+    expect(img.getAttribute("src")).toBe("data:image/png;base64,AAAA");
+    expect(img.getAttribute("draggable")).toBe("false");
+  });
+
+  it("prompt 节点显示文本；无 src 无 text 的节点不渲染图片", () => {
+    mount([
+      {
+        id: "p-1",
+        type: "prompt",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 80,
+        zIndex: 1,
+        text: "把这里换成一只猫",
+      },
+    ]);
+    expect(container.textContent).toContain("把这里换成一只猫");
+    expect(container.querySelector("[data-canvas-node-image]")).toBeNull();
+  });
 });
