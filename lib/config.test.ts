@@ -6,6 +6,9 @@ import {
   PROVIDER_PRESETS,
   LLMConfigError,
   sanitizeEnvValue,
+  readComfyUIEnv,
+  DEFAULT_COMFYUI_BASE_URL,
+  DEFAULT_COMFYUI_ARTIFACT_DIR,
 } from "./config";
 
 const FULL_ENV = {
@@ -83,5 +86,43 @@ describe("sanitizeEnvValue（配置容错）", () => {
     expect(cfg?.LLM_API_KEY).toBe("sk-0d5d4f0991a348049ef8da38043e4c11");
     expect(cfg?.LLM_BASE_URL).toBe("https://api.deepseek.com/v1");
     expect(cfg?.LLM_MODEL).toBe("deepseek-chat");
+  });
+});
+
+describe("ComfyUI 配置读取（readComfyUIEnv）", () => {
+  it("空环境回落到默认值，且永不返回 null（本机可开箱用）", () => {
+    const cfg = readComfyUIEnv({});
+    expect(cfg.baseUrl).toBe(DEFAULT_COMFYUI_BASE_URL);
+    expect(cfg.artifactDir).toBe(DEFAULT_COMFYUI_ARTIFACT_DIR);
+    expect(cfg.checkpoint).toBeUndefined();
+    expect(cfg.timeoutMs).toBeUndefined();
+  });
+
+  it("显式配置覆盖默认（换局域网机器/服务器只改环境变量）", () => {
+    const cfg = readComfyUIEnv({
+      COMFYUI_BASE_URL: "http://192.168.1.9:8188",
+      COMFYUI_CHECKPOINT: "v1-5-pruned-emaonly-fp16.safetensors",
+      COMFYUI_TIMEOUT_MS: "60000",
+      COMFYUI_ARTIFACT_DIR: "D:/artifacts/comfy",
+    });
+    expect(cfg.baseUrl).toBe("http://192.168.1.9:8188");
+    expect(cfg.checkpoint).toBe("v1-5-pruned-emaonly-fp16.safetensors");
+    expect(cfg.timeoutMs).toBe(60000);
+    expect(cfg.artifactDir).toBe("D:/artifacts/comfy");
+  });
+
+  it("剥掉包裹符（与 LLM_* 同一套清洗规则）", () => {
+    expect(readComfyUIEnv({ COMFYUI_BASE_URL: "<http://127.0.0.1:8288>" }).baseUrl).toBe(
+      "http://127.0.0.1:8288",
+    );
+  });
+
+  it("兼容旧变量名 COMFY_URL，且 COMFYUI_BASE_URL 优先", () => {
+    expect(readComfyUIEnv({ COMFY_URL: "http://127.0.0.1:9999" }).baseUrl).toBe(
+      "http://127.0.0.1:9999",
+    );
+    expect(
+      readComfyUIEnv({ COMFYUI_BASE_URL: "http://a:1", COMFY_URL: "http://b:2" }).baseUrl,
+    ).toBe("http://a:1");
   });
 });

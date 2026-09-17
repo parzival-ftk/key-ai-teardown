@@ -16,6 +16,7 @@
     "stub:comfy": "node e2e/stub-comfy-server.mjs",
     "comfy:doctor": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/comfy-doctor.ts",
     "comfy:txt2img": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/comfy-txt2img.ts",
+    "comfy:e2e": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/comfy-e2e.ts --live",
     "eval": "node --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./eval/register.mjs scripts/run-eval.ts"
   },
   "dependencies": {

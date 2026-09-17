@@ -140,3 +140,55 @@ export function createProviderFromEnv(
   };
   return createOpenAICompatibleProvider(providerConfig);
 }
+
+/* ── ComfyUI（图片生成）配置 ── */
+
+/** 本机默认的 ComfyUI 服务地址 */
+export const DEFAULT_COMFYUI_BASE_URL = "http://127.0.0.1:8188";
+/** 产出图片的默认落盘目录（运行时目录，不纳入版本管理） */
+export const DEFAULT_COMFYUI_ARTIFACT_DIR = ".rivet/artifacts/comfy";
+
+/** ComfyUI 相关环境变量的 schema（全部可缺省，缺省走默认值） */
+export const ComfyUIEnvSchema = z.object({
+  COMFYUI_BASE_URL: z.string().min(1).optional(),
+  COMFYUI_CHECKPOINT: z.string().min(1).optional(),
+  COMFYUI_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  COMFYUI_ARTIFACT_DIR: z.string().min(1).optional(),
+});
+
+export interface ComfyUIConfig {
+  /** 服务地址（换局域网机器 / 服务器只改这里） */
+  baseUrl: string;
+  /** 产出图片落盘目录 */
+  artifactDir: string;
+  /** 默认模型文件名；未配置则交给 provider 的兜底常量 */
+  checkpoint?: string;
+  timeoutMs?: number;
+}
+
+/**
+ * 读取 ComfyUI 配置（先清洗，与 LLM_* 同一套规则）。
+ *
+ * 每一项都可缺省并回落到默认值，所以**永不返回 null** —— 与 `readLLMEnv` 的差异
+ * 在于 ComfyUI 是本机可选能力，未配置时应能开箱用默认值，而不是报「未配置」。
+ *
+ * 兼容旧变量名 `COMFY_URL`（`scripts\comfy-doctor.ts` 早期用过）。
+ */
+export function readComfyUIEnv(
+  env: Record<string, string | undefined> = process.env,
+): ComfyUIConfig {
+  const parsed = ComfyUIEnvSchema.safeParse({
+    COMFYUI_BASE_URL: sanitizeEnvValue(env.COMFYUI_BASE_URL),
+    COMFYUI_CHECKPOINT: sanitizeEnvValue(env.COMFYUI_CHECKPOINT),
+    COMFYUI_TIMEOUT_MS: sanitizeEnvValue(env.COMFYUI_TIMEOUT_MS),
+    COMFYUI_ARTIFACT_DIR: sanitizeEnvValue(env.COMFYUI_ARTIFACT_DIR),
+  });
+  const data = parsed.success ? parsed.data : {};
+  const legacyBase = sanitizeEnvValue(env.COMFY_URL);
+  return {
+    baseUrl: data.COMFYUI_BASE_URL ?? legacyBase ?? DEFAULT_COMFYUI_BASE_URL,
+    artifactDir: data.COMFYUI_ARTIFACT_DIR ?? DEFAULT_COMFYUI_ARTIFACT_DIR,
+    ...(data.COMFYUI_CHECKPOINT ? { checkpoint: data.COMFYUI_CHECKPOINT } : {}),
+    ...(data.COMFYUI_TIMEOUT_MS ? { timeoutMs: data.COMFYUI_TIMEOUT_MS } : {}),
+  };
+}
