@@ -29,6 +29,23 @@ const numArg = (name: string, fallback: number): number => {
   return Number.isFinite(value) ? value : fallback;
 };
 
+/**
+ * 把 `ImageGenError.details` 渲染成有信息量的文本。
+ *
+ * - `Error` 类 details 不打印：它的原因已经写进 `error.message`，再打一遍是噪声；
+ * - 空对象/空数组不打印（否则输出没意义的 `details: {}`）；
+ * - 结构化 details（如 `{ availableCheckpoints }`）才打印。
+ */
+function describeDetails(details: unknown): string {
+  if (details === undefined || details === null || details instanceof Error) return "";
+  try {
+    const text = JSON.stringify(details);
+    return text === "{}" || text === "[]" || text === "null" ? "" : text.slice(0, 500);
+  } catch {
+    return String(details);
+  }
+}
+
 async function main(): Promise<number> {
   const env = readComfyUIEnv(process.env);
   const baseUrl = (argOf("url") ?? env.baseUrl).replace(/\/+$/, "");
@@ -73,8 +90,9 @@ async function main(): Promise<number> {
       if (available?.length) {
         console.log(`  本机可用 checkpoint：${available.join(" / ")}`);
         console.log("  用 --checkpoint=<上面的名字> 指定，或写进 .env 的 COMFYUI_CHECKPOINT");
-      } else if (error.details !== undefined) {
-        console.log(`  details: ${JSON.stringify(error.details).slice(0, 500)}`);
+      } else {
+        const detail = describeDetails(error.details);
+        if (detail) console.log(`  details: ${detail}`);
       }
       return 1;
     }

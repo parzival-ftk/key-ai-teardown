@@ -52,6 +52,17 @@ function pngSize(bytes: Uint8Array): { width: number; height: number } | null {
   return { width: view.getUint32(16), height: view.getUint32(20) };
 }
 
+/** 把 details 渲染成有信息量的文本；Error 类与空对象不打印（原因已在 message / 属噪声） */
+function describeDetails(details: unknown): string {
+  if (details === undefined || details === null || details instanceof Error) return "";
+  try {
+    const text = JSON.stringify(details);
+    return text === "{}" || text === "[]" || text === "null" ? "" : text.slice(0, 600);
+  } catch {
+    return String(details);
+  }
+}
+
 async function main(): Promise<number> {
   if (!LIVE) {
     console.log(
@@ -136,7 +147,8 @@ async function main(): Promise<number> {
   } catch (error) {
     if (error instanceof ImageGenError) {
       console.log(`\n[FAIL] ${error.code}：${error.message}`);
-      console.log(`       details: ${JSON.stringify(error.details ?? null).slice(0, 600)}`);
+      const detail = describeDetails(error.details);
+      if (detail) console.log(`       details: ${detail}`);
     } else {
       console.log(`\n[FAIL] 未预期错误：${error instanceof Error ? error.stack : String(error)}`);
     }
