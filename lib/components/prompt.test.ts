@@ -15,7 +15,7 @@ function nodeByName(name: string) {
 
 describe("derivePrompt", () => {
   it("有 visualDescription 时直接用它", () => {
-    const search = nodeByName("SearchBox");
+    const search = nodeByName("搜索框");
     expect(derivePrompt(search)).toBe(
       "Rounded pill-shaped search input with a magnifier icon and soft blue glow",
     );
@@ -41,13 +41,13 @@ describe("derivePrompt", () => {
 
 describe("componentPrompt", () => {
   it("自带 prompt 优先", () => {
-    const illustration = nodeByName("Illustration");
+    const illustration = nodeByName("插图");
     expect(componentPrompt(tree, illustration.id)).toBe(illustration.prompt);
   });
 
   it("无自带 prompt 时回落到推导", () => {
-    const header = nodeByName("Header");
-    expect(componentPrompt(tree, header.id)).toContain("Header");
+    const header = nodeByName("页眉");
+    expect(componentPrompt(tree, header.id)).toContain("页眉");
   });
 
   it("不存在的组件返回空串", () => {
@@ -57,7 +57,7 @@ describe("componentPrompt", () => {
 
 describe("componentFields", () => {
   it("给出 6 个字段并保留空值字段", () => {
-    const header = nodeByName("Header");
+    const header = nodeByName("页眉");
     const fields = componentFields(header);
     expect(fields.map((f) => f.key)).toEqual([
       "name",
@@ -67,13 +67,13 @@ describe("componentFields", () => {
       "text",
       "style",
     ]);
-    expect(fields.find((f) => f.key === "name")?.value).toBe("Header");
+    expect(fields.find((f) => f.key === "name")?.value).toBe("页眉");
     expect(fields.find((f) => f.key === "type")?.value).toBe("区块");
-    expect(fields.find((f) => f.key === "role")?.value).toBe("site header");
+    expect(fields.find((f) => f.key === "role")?.value).toBe("网站页眉");
   });
 
   it("缺失属性展示为空串而非 undefined", () => {
-    const features = nodeByName("Features");
+    const features = nodeByName("特性区");
     const fields = componentFields(features);
     expect(fields.find((f) => f.key === "text")?.value).toBe("");
     expect(fields.find((f) => f.key === "style")?.value).toBe("");
@@ -82,12 +82,12 @@ describe("componentFields", () => {
 
 describe("componentBreadcrumb / componentStats / treeOverview", () => {
   it("面包屑从根到自身", () => {
-    const search = nodeByName("SearchBox");
-    expect(componentBreadcrumb(tree, search.id)).toEqual(["Landing Page", "Hero", "SearchBox"]);
+    const search = nodeByName("搜索框");
+    expect(componentBreadcrumb(tree, search.id)).toEqual(["落地页", "主视觉", "搜索框"]);
   });
 
   it("深度与子组件数", () => {
-    const hero = nodeByName("Hero");
+    const hero = nodeByName("主视觉");
     expect(componentStats(tree, hero.id)).toEqual({ depth: 1, childCount: 3 });
   });
 
@@ -95,6 +95,6 @@ describe("componentBreadcrumb / componentStats / treeOverview", () => {
     const overview = treeOverview(tree);
     expect(overview.total).toBe(8);
     expect(overview.byType.page).toBe(1);
-    expect(findComponent(tree, tree.rootId)?.name).toBe("Landing Page");
+    expect(findComponent(tree, tree.rootId)?.name).toBe("落地页");
   });
 });

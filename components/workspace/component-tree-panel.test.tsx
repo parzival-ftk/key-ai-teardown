@@ -29,8 +29,8 @@ describe("ComponentTreePanel", () => {
     expect(nodes.length).toBe(Object.keys(tree.nodes).length);
     expect($('[data-tree-node="n1"]').getAttribute("data-depth")).toBe("0");
     // Hero 的子在更深一层
-    const heroId = Object.values(tree.nodes).find((n) => n.name === "Hero")!.id;
-    const titleId = Object.values(tree.nodes).find((n) => n.name === "Title")!.id;
+    const heroId = Object.values(tree.nodes).find((n) => n.name === "主视觉")!.id;
+    const titleId = Object.values(tree.nodes).find((n) => n.name === "标题")!.id;
     expect(Number($(`[data-tree-node="${titleId}"]`).getAttribute("data-depth"))).toBe(
       Number($(`[data-tree-node="${heroId}"]`).getAttribute("data-depth")) + 1,
     );
@@ -39,13 +39,13 @@ describe("ComponentTreePanel", () => {
   it("点击节点回传 id", () => {
     const onSelect = vi.fn();
     act(() => root.render(<ComponentTreePanel tree={tree} selection={[]} onSelect={onSelect} />));
-    const id = Object.values(tree.nodes).find((n) => n.name === "SearchBox")!.id;
+    const id = Object.values(tree.nodes).find((n) => n.name === "搜索框")!.id;
     act(() => $(`[data-tree-node="${id}"]`).click());
     expect(onSelect).toHaveBeenCalledWith(id);
   });
 
   it("选中项标记 aria-pressed", () => {
-    const id = Object.values(tree.nodes).find((n) => n.name === "Hero")!.id;
+    const id = Object.values(tree.nodes).find((n) => n.name === "主视觉")!.id;
     act(() => root.render(<ComponentTreePanel tree={tree} selection={[id]} onSelect={vi.fn()} />));
     expect($(`[data-tree-node="${id}"]`).getAttribute("aria-pressed")).toBe("true");
   });

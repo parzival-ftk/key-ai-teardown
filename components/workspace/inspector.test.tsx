@@ -9,7 +9,7 @@ import type { GeneratedAsset } from "@/lib/components/types";
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const tree = createExampleProject(1000).tree;
-const illustrationId = Object.values(tree.nodes).find((n) => n.name === "Illustration")!.id;
+const illustrationId = Object.values(tree.nodes).find((n) => n.name === "插图")!.id;
 
 const ASSET: GeneratedAsset = {
   id: "a1",
@@ -57,10 +57,10 @@ describe("Inspector", () => {
         />,
       ),
     );
-    expect($('[data-inspector-field="name"]').textContent).toBe("Illustration");
+    expect($('[data-inspector-field="name"]').textContent).toBe("插图");
     expect($('[data-inspector-field="type"]').textContent).toBe("组件");
-    expect($('[data-inspector-field="role"]').textContent).toBe("hero illustration");
-    expect($("[data-inspector-breadcrumb]").textContent).toContain("Landing Page / Hero / Illustration");
+    expect($('[data-inspector-field="role"]').textContent).toBe("主视觉插图");
+    expect($("[data-inspector-breadcrumb]").textContent).toContain("落地页 / 主视觉 / 插图");
     expect(($('[data-inspector-prompt]') as HTMLTextAreaElement).value).toContain("cinematic");
   });
 

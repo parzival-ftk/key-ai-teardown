@@ -58,7 +58,7 @@ describe("WorkspaceView（产品闭环集成）", () => {
   it("打开示例工作区：组件树 + 画布节点 + 父子连线渲染", async () => {
     await mount();
     expect($("[data-workspace]")).not.toBeNull();
-    expect($("[data-workspace-title]").textContent).toBe("Landing Page");
+    expect($("[data-workspace-title]").textContent).toBe("落地页示例");
     expect(container.querySelectorAll("[data-canvas-node]")).toHaveLength(8);
     expect(container.querySelector("[data-component-tree]")).not.toBeNull();
     expect(container.querySelector("[data-component-connections]")).not.toBeNull();
@@ -69,7 +69,7 @@ describe("WorkspaceView（产品闭环集成）", () => {
   it("从组件树选中组件 → Inspector 显示字段与 Prompt", async () => {
     await mount();
     act(() => $(`[data-tree-node="${ILLUSTRATION_ID}"]`).click());
-    expect($('[data-inspector-field="name"]').textContent).toBe("Illustration");
+    expect($('[data-inspector-field="name"]').textContent).toBe("插图");
     expect(($('[data-inspector-prompt]') as HTMLTextAreaElement).value).toContain("cinematic");
     expect($("[data-inspector-empty]")).toBeNull();
   });

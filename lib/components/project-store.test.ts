@@ -74,7 +74,7 @@ describe("示例工作区", () => {
     const store = memStore();
     const project = ensureExampleProject(store, 5000);
     expect(project.id).toBe(EXAMPLE_PROJECT_ID);
-    expect(getProject(store, EXAMPLE_PROJECT_ID)?.name).toBe("Landing Page");
+    expect(getProject(store, EXAMPLE_PROJECT_ID)?.name).toBe("落地页示例");
     expect(listProjects(store).map((p) => p.id)).toContain(EXAMPLE_PROJECT_ID);
   });
 
@@ -89,10 +89,10 @@ describe("示例工作区", () => {
   it("示例树形：Landing Page → 4 个 section，Illustration 预置 prompt", () => {
     const project = createExampleProject(1000);
     const names = project.tree.nodes.n1.children.map((id) => project.tree.nodes[id].name);
-    expect(names).toEqual(["Header", "Hero", "Features", "Footer"]);
+    expect(names).toEqual(["页眉", "主视觉", "特性区", "页脚"]);
 
     const illustration = Object.values(project.tree.nodes).find(
-      (node) => node.name === "Illustration",
+      (node) => node.name === "插图",
     );
     expect(illustration?.prompt).toContain("cinematic");
     expect(illustration?.type).toBe("component");

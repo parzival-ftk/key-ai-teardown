@@ -94,9 +94,9 @@ describe("runAnalysis", () => {
       createDemoAnalysisProvider({ delayMs: 0 }),
     );
     expect(result.source).toBe("demo");
-    expect(result.pageName).toBe("Dashboard");
+    expect(result.pageName).toBe("仪表盘");
     expect(Object.keys(result.tree.nodes).length).toBeGreaterThan(5);
-    expect(result.tree.nodes[result.tree.rootId].name).toBe("Dashboard");
+    expect(result.tree.nodes[result.tree.rootId].name).toBe("仪表盘");
   });
 
   it("对缺矩形的 provider 输出自动补布局", async () => {
