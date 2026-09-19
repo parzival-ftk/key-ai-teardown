@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Key · AI 产品拆解助手",
-  description: "把任何产品拆成关键洞察（Key · 让每个产品都讲得清）。",
+  title: "Key · Interface Analysis & Visual Decomposition",
+  description:
+    "AI-powered interface analysis and visual decomposition workspace：上传界面截图，拆解成结构化组件树，在无限画布上组织、检查，并通过 ComfyUI 生成视觉资产。",
 };
 
 export default function RootLayout({
