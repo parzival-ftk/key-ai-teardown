@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   DEFAULT_VIEWPORT,
   GRID_SIZE,
@@ -158,23 +158,87 @@ type DragState =
   | { kind: "create"; anchor: Point; current: Point; tool: Exclude<CanvasTool, "select"> };
 
 export interface CanvasViewportProps {
-  /** 初始节点（受控场景可注入） */
+  /** 初始节点（非受控场景的初值） */
   initialNodes?: CanvasNode[];
   /** Inpaint 端口（缺省用浏览器实现） */
   inpaintPorts?: InpaintPorts;
   /** ComfyUI 服务地址初值 */
   comfyServerUrl?: string;
+  /**
+   * 受控节点。提供后画布不再自持节点状态，改为经 `onNodesChange` 回传
+   * ——工作区把组件树映射成节点、把生成结果追加进来时需要这一层控制。
+   */
+  nodes?: CanvasNode[];
+  onNodesChange?: (nodes: CanvasNode[]) => void;
+  /** 受控选择 */
+  selection?: string[];
+  onSelectionChange?: (ids: string[]) => void;
+  /** 面板开关（缺省全开，保持既有行为） */
+  showLayers?: boolean;
+  showProperties?: boolean;
+  showInpaintBar?: boolean;
+  /**
+   * 拖动分组：拖动某节点时一并移动的其它节点 id（组件树的「拖父带子」用它）。
+   * 缺省只拖自身。
+   */
+  dragGroup?: (nodeId: string) => string[];
+  /** 画布表面内的叠加层（用视口数学定位；绘制父子连线等） */
+  renderOverlay?: (
+    viewport: Viewport,
+    size: { width: number; height: number },
+  ) => ReactNode;
+  /** 追加到根容器的类名（调整高度/布局用） */
+  className?: string;
 }
 
 export function CanvasViewport({
   initialNodes = [],
   inpaintPorts,
   comfyServerUrl = DEFAULT_COMFY_URL,
+  nodes: controlledNodes,
+  onNodesChange,
+  selection: controlledSelection,
+  onSelectionChange,
+  showLayers = true,
+  showProperties = true,
+  showInpaintBar = true,
+  dragGroup,
+  renderOverlay,
+  className,
 }: CanvasViewportProps) {
   const ports = inpaintPorts ?? defaultInpaintPorts;
-  const [nodes, setNodes] = useState<CanvasNode[]>(initialNodes);
   const [viewport, setViewport] = useState<Viewport>({ ...DEFAULT_VIEWPORT });
-  const [selection, setSelection] = useState<string[]>([]);
+  /*
+   * 受控 / 非受控双模式：受控时节点与选择由上层持有，非受控时用内部 state
+   * （既有行为不变）。两者都经 ref 读取最新值，从而保留原代码里的「函数式更新」
+   * 语义 —— 拖拽期间连续 pointermove 不会因闭包过期而丢更新。
+   */
+  const [internalNodes, setInternalNodes] = useState<CanvasNode[]>(initialNodes);
+  const [internalSelection, setInternalSelection] = useState<string[]>([]);
+  const nodes = controlledNodes ?? internalNodes;
+  const selection = controlledSelection ?? internalSelection;
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  const setNodes = useCallback(
+    (updater: CanvasNode[] | ((current: CanvasNode[]) => CanvasNode[])) => {
+      const next = typeof updater === "function" ? updater(nodesRef.current) : updater;
+      nodesRef.current = next;
+      if (onNodesChange) onNodesChange(next);
+      else setInternalNodes(next);
+    },
+    [onNodesChange],
+  );
+  const setSelection = useCallback(
+    (updater: string[] | ((current: string[]) => string[])) => {
+      const next = typeof updater === "function" ? updater(selectionRef.current) : updater;
+      selectionRef.current = next;
+      if (onSelectionChange) onSelectionChange(next);
+      else setInternalSelection(next);
+    },
+    [onSelectionChange],
+  );
   const [tool, setTool] = useState<CanvasTool>("select");
   const [spaceDown, setSpaceDown] = useState(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -358,9 +422,16 @@ export function CanvasViewport({
     setSelection(nextSelection);
     setNodes((current) => bringToFront(current, node.id));
     snapshotRef.current = nodes;
+    // 拖动主体：多选时移动全部选中；单选时按 dragGroup 展开（组件树「拖父带子」）
+    const dragIds =
+      nextSelection.length > 1
+        ? nextSelection
+        : dragGroup
+          ? dragGroup(node.id)
+          : [node.id];
     dragRef.current = {
       kind: "move",
-      ids: nextSelection,
+      ids: dragIds,
       last: { x: event.clientX, y: event.clientY },
       moved: false,
     };
@@ -569,10 +640,14 @@ export function CanvasViewport({
   const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
 
   return (
-    <div data-canvas-root className="flex h-[70vh] min-h-[420px] w-full gap-2">
+    <div
+      data-canvas-root
+      className={`flex h-[70vh] min-h-[420px] w-full gap-2${className ? ` ${className}` : ""}`}
+    >
       {/* 图层面板 */}
       <aside
         data-canvas-layers
+        style={{ display: showLayers ? undefined : "none" }}
         className="flex w-44 shrink-0 flex-col gap-1 overflow-auto rounded-xl border border-gray-200 p-2 text-xs dark:border-gray-800"
       >
         <span className="px-1 font-medium text-gray-500 dark:text-gray-400">
@@ -679,6 +754,9 @@ export function CanvasViewport({
             );
           })}
 
+          {/* 叠加层（父子连线等，由上层用视口数学绘制） */}
+          {renderOverlay?.(viewport, size)}
+
           {/* 选框 */}
           {marqueeRect && (
             <div
@@ -731,7 +809,7 @@ export function CanvasViewport({
         </div>
 
         {/* W31：选区上方的 ComfyUI Inpaint 浮条 */}
-        {selectedNode && box && (
+        {showInpaintBar && selectedNode && box && (
           <div
             data-canvas-inpaint-bar
             className="absolute z-[60] flex flex-wrap items-center gap-2 rounded-lg border border-gray-700 bg-gray-900/95 p-2 text-xs text-white shadow-xl backdrop-blur"
@@ -864,6 +942,7 @@ export function CanvasViewport({
       {/* 属性面板 */}
       <aside
         data-canvas-properties
+        style={{ display: showProperties ? undefined : "none" }}
         className="flex w-48 shrink-0 flex-col gap-2 overflow-auto rounded-xl border border-gray-200 p-2 text-xs dark:border-gray-800"
       >
         <span className="px-1 font-medium text-gray-500 dark:text-gray-400">属性</span>

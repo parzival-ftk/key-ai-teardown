@@ -26,6 +26,11 @@ export interface CanvasNode {
   src?: string;
   /** prompt 节点的提示词文本 */
   text?: string;
+  /**
+   * 绑定到组件树的组件 id（阶段 15）。
+   * 组件节点与生成资产节点都带上它，用于「节点 ↔ 组件」双向追溯。
+   */
+  componentId?: string;
 }
 
 export type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -66,6 +71,8 @@ export interface CreateNodeInput {
   label?: string;
   src?: string;
   text?: string;
+  /** 绑定到组件树的组件 id（阶段 15） */
+  componentId?: string;
   /** 缺省 id（测试与受控场景可注入，保证确定性） */
   id?: string;
 }
@@ -93,6 +100,7 @@ export function createCanvasNode(
     ...(input.label ? { label: input.label } : {}),
     ...(input.src ? { src: input.src } : {}),
     ...(input.text ? { text: input.text } : {}),
+    ...(input.componentId ? { componentId: input.componentId } : {}),
   };
 }
 
