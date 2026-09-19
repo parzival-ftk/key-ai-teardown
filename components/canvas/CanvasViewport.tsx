@@ -117,6 +117,36 @@ export const CANVAS_TOOLS: { key: CanvasTool; label: string; hint: string }[] = 
   { key: "shape", label: "图形", hint: "R" },
 ];
 
+/** 工具图标（16×16 stroke，currentColor；沿用 lucide 风格的简洁线条） */
+const TOOL_ICONS: Record<CanvasTool, ReactNode> = {
+  select: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+      <path d="m13 13 6 6" />
+    </svg>
+  ),
+  frame: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="22" x2="2" y1="6" y2="6" />
+      <line x1="22" x2="2" y1="18" y2="18" />
+      <line x1="6" x2="6" y1="2" y2="22" />
+      <line x1="18" x2="18" y1="2" y2="22" />
+    </svg>
+  ),
+  prompt: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="4 7 4 4 20 4 20 7" />
+      <line x1="9" x2="15" y1="20" y2="20" />
+      <line x1="12" x2="12" y1="4" y2="20" />
+    </svg>
+  ),
+  shape: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+    </svg>
+  ),
+};
+
 /** 新建节点默认尺寸（点击放置时） */
 const DEFAULT_NODE_SIZE = { width: 200, height: 140 };
 
@@ -634,8 +664,8 @@ export function CanvasViewport({
   const gridStyle = useMemo(
     () => ({
       backgroundImage:
-        "linear-gradient(to right, rgba(120,120,120,0.18) 1px, transparent 1px)," +
-        "linear-gradient(to bottom, rgba(120,120,120,0.18) 1px, transparent 1px)",
+        "linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px)," +
+        "linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)",
       backgroundSize: `${gridSize}px ${gridSize}px`,
       backgroundPosition: `${viewport.x}px ${viewport.y}px`,
     }),
@@ -706,9 +736,9 @@ export function CanvasViewport({
             const file = event.dataTransfer?.files?.[0];
             if (file) ingestImageFile(file, toCanvas(event));
           }}
-          className={`relative h-full w-full touch-none overflow-hidden rounded-xl border border-gray-200 ${
+          className={`relative h-full w-full touch-none overflow-hidden border border-zinc-800/60 ${
             spaceDown || tool !== "select" ? "cursor-grab" : "cursor-default"
-          } dark:border-gray-800`}
+          }`}
           style={gridStyle}
         >
           {sortByZ(nodes).map((node) => {
@@ -721,12 +751,12 @@ export function CanvasViewport({
                 onPointerDown={(event) => onNodePointerDown(event, node)}
                 className={`absolute select-none rounded-lg border text-xs ${
                   active
-                    ? "border-blue-500 shadow-lg"
-                    : "border-gray-300 dark:border-gray-600"
+                    ? "border-indigo-500 shadow-[0_0_0_1px_rgba(99,102,241,0.35)]"
+                    : "border-zinc-700"
                 } ${
                   node.type === "frame"
-                    ? "bg-transparent"
-                    : "bg-white/95 dark:bg-gray-900/95"
+                    ? "border-dashed bg-zinc-900/20"
+                    : "bg-zinc-800/80"
                 }`}
                 style={{
                   left: screen.x,
@@ -736,7 +766,11 @@ export function CanvasViewport({
                   zIndex: node.zIndex,
                 }}
               >
-                <span className="pointer-events-none absolute left-1 top-0.5 text-[10px] text-gray-400">
+                <span
+                  className={`pointer-events-none absolute left-1.5 top-1 text-[10px] font-medium ${
+                    node.type === "frame" ? "text-zinc-500" : "text-zinc-300"
+                  }`}
+                >
                   {node.label ?? NODE_TYPE_LABEL[node.type]}
                 </span>
                 {/* 图片节点要真的把图画出来 —— 否则「结果落回画布」只能看出一只空框 */}
@@ -881,7 +915,7 @@ export function CanvasViewport({
           data-canvas-toolbar
           role="toolbar"
           aria-label="画布工具"
-          className="absolute left-1/2 top-3 flex -translate-x-1/2 flex-wrap items-center gap-1 rounded-full border border-gray-200 bg-white/95 px-2 py-1 text-xs shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95"
+          className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-0.5 rounded-lg border border-zinc-700/80 bg-zinc-900/90 px-1.5 py-1 shadow-lg backdrop-blur"
         >
           {CANVAS_TOOLS.map((item) => (
             <button
@@ -889,30 +923,31 @@ export function CanvasViewport({
               type="button"
               data-canvas-tool={item.key}
               aria-pressed={tool === item.key}
+              aria-label={item.label}
               onClick={() => setTool(item.key)}
-              title={item.hint}
-              className={`rounded-full px-2.5 py-1 transition ${
+              title={`${item.label}（${item.hint}）`}
+              className={`flex h-7 w-7 items-center justify-center rounded-md transition ${
                 tool === item.key
-                  ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-black"
-                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  ? "bg-zinc-700 text-zinc-100"
+                  : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
               }`}
             >
-              {item.label}
+              {TOOL_ICONS[item.key]}
             </button>
           ))}
-          <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+          <span className="mx-1 h-4 w-px bg-zinc-700" />
           <button
             type="button"
             data-canvas-zoom-out
             aria-label="缩小"
             onClick={() => zoomByStep(1 / ZOOM_STEP)}
-            className="rounded-full px-2 py-1 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
           >
             −
           </button>
           <span
             data-canvas-zoom
-            className="min-w-10 text-center tabular-nums text-gray-500 dark:text-gray-400"
+            className="min-w-11 text-center text-xs tabular-nums text-zinc-400"
           >
             {formatZoom(viewport.scale)}
           </span>
@@ -921,23 +956,24 @@ export function CanvasViewport({
             data-canvas-zoom-in
             aria-label="放大"
             onClick={() => zoomByStep(ZOOM_STEP)}
-            className="rounded-full px-2 py-1 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
           >
             ＋
           </button>
+          <span className="mx-1 h-4 w-px bg-zinc-700" />
           <button
             type="button"
             data-canvas-fit
             onClick={fitContent}
-            className="rounded-full px-2 py-1 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="rounded-md px-2 py-1 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
           >
-            适应内容
+            适应
           </button>
           <button
             type="button"
             data-canvas-reset
             onClick={resetViewportState}
-            className="rounded-full px-2 py-1 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="rounded-md px-2 py-1 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
           >
             重置
           </button>

@@ -288,29 +288,40 @@ export function WorkspaceView({ projectId }: WorkspaceViewProps) {
     );
   }
 
-  const analysisLabel =
-    project.analysisSource === "real" ? "REAL" : project.analysisSource ? "DEMO" : "未使用";
   const selectedId = selection.length === 1 ? selection[0] : null;
 
   return (
-    <main data-workspace className="flex h-screen flex-col gap-2 p-3 text-sm">
-      <header className="flex flex-wrap items-center gap-3">
-        <Link href="/projects" className="text-xs text-gray-400 hover:underline">
-          ← 项目
+    <main data-workspace className="flex h-screen flex-col bg-zinc-950 text-sm text-zinc-200">
+      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800/80 px-4">
+        <Link
+          href="/projects"
+          className="flex items-center gap-1 text-xs text-zinc-500 transition hover:text-zinc-200"
+        >
+          <span aria-hidden>←</span> 项目
         </Link>
-        <h1 data-workspace-title className="text-base font-semibold">
+        <h1
+          data-workspace-title
+          className="truncate text-sm font-medium text-zinc-100"
+        >
           {project.name}
         </h1>
-        <span data-workspace-analysis-source className="text-[11px] text-gray-500">
-          截图分析：{analysisLabel}
-        </span>
-        <span className="ml-auto text-[11px] text-gray-400">
-          Canvas REAL · Persistence REAL · ComfyUI REAL · 截图分析 DEMO
-        </span>
+        {project.analysisSource === "demo" && (
+          <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+            DEMO 分析
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/projects"
+            className="rounded-md border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
+          >
+            新建项目
+          </Link>
+        </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 gap-2">
-        <div className="flex w-72 shrink-0 flex-col gap-2">
+      <div className="flex min-h-0 flex-1 gap-0">
+        <div className="flex w-72 shrink-0 flex-col gap-2 overflow-auto border-r border-zinc-800/80 p-3">
           <ComponentTreePanel tree={project.tree} selection={selection} onSelect={handleSelect} />
           <AnalyzePanel
             state={analyze}
