@@ -59,6 +59,7 @@ Capabilities are labelled honestly — nothing is presented as more real than it
 | Component prompt (authored or derived) | **REAL** | `lib/components/prompt.ts` |
 | Persistence (refresh keeps your project) | **REAL** | localStorage via the existing `KVStore` abstraction |
 | ComfyUI visual generation | **REAL** | Server-side `ComfyUIProvider` over HTTP (`/prompt` → `/history` → `/view`); requires a running ComfyUI instance |
+| Screenshot input (upload / validate / preview) | **REAL** | Accepts PNG / JPG / WEBP; reuses the existing image parser with size and type validation |
 | Screenshot analysis → component tree | **DEMO** | No vision model is wired into this flow yet; the default provider returns a deterministic tree and is labelled `demo` in the UI |
 | Product teardown / multi-product comparison | **Legacy** | Earlier feature set, kept in the repository; see *Legacy modules* below |
 
@@ -66,16 +67,67 @@ Capabilities are labelled honestly — nothing is presented as more real than it
 
 ## Quick start
 
+### 1. Install dependencies
+
 ```bash
 npm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Set the `LLM_*` variables if you use the legacy product-teardown modules. For the interface-analysis
+workspace they are not required.
+
+### 3. (Optional — only for *Generate Visual*) Set up ComfyUI
+
+ComfyUI is a **separate installation**, not part of this repository. Install it into any directory you
+like (e.g. `/path/to/ComfyUI`) following its official instructions.
+
+```bash
+# start ComfyUI from its own directory
+cd /path/to/ComfyUI
+python main.py
+```
+
+Then set the checkpoint name to one that actually exists on your machine:
+
+```env
+# .env
+COMFYUI_BASE_URL=http://127.0.0.1:8188
+COMFYUI_CHECKPOINT=<your-checkpoint-name>
+```
+
+`COMFYUI_CHECKPOINT` must match a filename in ComfyUI's `models/checkpoints/` exactly. For example:
+
+```env
+COMFYUI_CHECKPOINT=v1-5-pruned-emaonly-fp16.safetensors
+```
+
+That example is only for local verification — you can configure any checkpoint that is compatible with
+the current workflow. Verify the connection with:
+
+```bash
+npm run comfy:doctor    # inspects /object_info and validates the workflow against the real schema
+```
+
+### 4. Run the app
+
+```bash
 npm run dev
 ```
 
 Open http://localhost:3000.
 
-- **Create Project** — starts from a small page skeleton.
-- **Example Project** — a built-in *Landing Page* workspace. Open it, select
-  `Hero → Illustration`, and use **Generate Visual** to run the whole loop without uploading anything.
+### 5. Try the Example Project
+
+Open **Example Project** — a built-in *Landing Page* workspace — then select `Hero → Illustration` and
+use **Generate Visual** to run the whole loop without uploading anything first. **Create Project** starts
+from a small page skeleton, and uploading a screenshot (PNG / JPG / WEBP) drives the analysis → component
+tree → canvas flow.
 
 ---
 
@@ -88,7 +140,7 @@ Copy `.env.example` to `.env`.
 | `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | OpenAI-compatible endpoint used by the legacy product-teardown modules |
 | `LLM_TIMEOUT_MS` | Optional per-call timeout (default 60000) |
 | `COMFYUI_BASE_URL` | ComfyUI base URL (default `http://127.0.0.1:8188`) |
-| `COMFYUI_CHECKPOINT` | Default checkpoint filename; if omitted the provider falls back to its own default |
+| `COMFYUI_CHECKPOINT` | Checkpoint filename — **must match** a file in ComfyUI's `models/checkpoints/`. If omitted, the provider falls back to a built-in default that is very likely *not* installed, so generation fails with a `WORKFLOW_INVALID` error listing the checkpoints that *are* available |
 | `COMFYUI_TIMEOUT_MS` | Per-generation wait limit (default 120000) |
 | `COMFYUI_ARTIFACT_DIR` | Where generated images are written (default `.rivet/artifacts/comfy`) |
 
@@ -108,8 +160,10 @@ Component prompt
   → GeneratedAsset (bound to the component)
 ```
 
-1. Run ComfyUI locally (default `http://127.0.0.1:8188`) and make sure at least one checkpoint is installed.
-2. Set `COMFYUI_CHECKPOINT` if the default checkpoint name does not match your installation.
+1. Run ComfyUI locally (default `http://127.0.0.1:8188`) and make sure at least one checkpoint is installed under its `models/checkpoints/`.
+2. Set `COMFYUI_CHECKPOINT` to the **exact filename** of that checkpoint. This is required: the built-in
+   default (`sd_xl_base_1.0.safetensors`) is only a fallback and will almost never match a fresh install,
+   so an unset or wrong value surfaces as `WORKFLOW_INVALID` with the list of checkpoints that *are* available.
 3. Check the connection:
 
 ```bash
@@ -259,3 +313,9 @@ npm run stub:llm    # stub LLM server for integration tests
 npm run demo        # smoke-check the legacy demo endpoints against a running dev server
 npm run eval        # quality gate for the legacy report pipeline (needs a real LLM)
 ```
+
+---
+
+## License
+
+LICENSE NOT YET DEFINED
