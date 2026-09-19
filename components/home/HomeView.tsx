@@ -77,7 +77,7 @@ export function HomeView() {
     const store = browserProjectStore();
     if (!store) return;
     const project = createProject(store, {
-      name: "Untitled Project",
+      name: "未命名项目",
       tree: createStarterTree(),
       source: "blank",
     });
@@ -102,7 +102,6 @@ export function HomeView() {
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Key</h1>
         <p className="text-sm text-gray-500">
-          AI-powered interface analysis and visual decomposition workspace ——
           把产品界面截图拆解成结构化组件树，在无限画布上组织、检查，并通过 ComfyUI 生成视觉资产。
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -112,7 +111,7 @@ export function HomeView() {
             onClick={createNew}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
           >
-            Create Project
+            新建项目
           </button>
           <button
             type="button"
@@ -120,18 +119,18 @@ export function HomeView() {
             onClick={openExample}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-900"
           >
-            Example Project
+            示例项目
           </button>
         </div>
       </header>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">Recent Projects</h2>
+        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">最近项目</h2>
         {!hydrated ? (
           <p className="text-xs text-gray-400">加载中…</p>
         ) : projects.length === 0 ? (
           <p data-home-empty className="text-xs text-gray-400">
-            还没有项目。点 Create Project 新建，或打开 Example Project。
+            还没有项目。点「新建项目」新建，或打开「示例项目」。
           </p>
         ) : (
           <ul data-home-projects className="flex flex-col gap-1">

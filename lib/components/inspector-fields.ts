@@ -25,12 +25,12 @@ export interface InspectorField {
 /** 组件在 Inspector 里展示的字段（值为空的字段也保留，便于用户看到「缺失」） */
 export function componentFields(node: ComponentNode): InspectorField[] {
   return [
-    { key: "name", label: "Name", value: node.name },
-    { key: "type", label: "Type", value: COMPONENT_TYPE_LABEL[node.type] },
-    { key: "role", label: "Role", value: node.properties?.role ?? "" },
-    { key: "description", label: "Description", value: node.description ?? "" },
-    { key: "text", label: "Text", value: node.properties?.text ?? "" },
-    { key: "style", label: "Visual Style", value: node.properties?.style ?? "" },
+    { key: "name", label: "名称", value: node.name },
+    { key: "type", label: "类型", value: COMPONENT_TYPE_LABEL[node.type] },
+    { key: "role", label: "角色", value: node.properties?.role ?? "" },
+    { key: "description", label: "描述", value: node.description ?? "" },
+    { key: "text", label: "文本", value: node.properties?.text ?? "" },
+    { key: "style", label: "视觉风格", value: node.properties?.style ?? "" },
   ];
 }
 

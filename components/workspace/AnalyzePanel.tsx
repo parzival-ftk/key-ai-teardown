@@ -28,7 +28,7 @@ export function AnalyzePanel({ state, source, onSelectFile, onAnalyze, onReset }
       data-analyze-panel
       className="flex w-72 shrink-0 flex-col gap-2 overflow-auto rounded-xl border border-gray-200 p-3 text-xs dark:border-gray-800"
     >
-      <span className="font-medium text-gray-500 dark:text-gray-400">Analyze Screenshot</span>
+      <span className="font-medium text-gray-500 dark:text-gray-400">截图分析</span>
 
       <input
         data-analyze-input
@@ -87,7 +87,7 @@ export function AnalyzePanel({ state, source, onSelectFile, onAnalyze, onReset }
           onClick={onAnalyze}
           className="rounded bg-indigo-600 px-3 py-1 font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
         >
-          {busy ? "Analyzing…" : "Analyze"}
+          {busy ? "分析中…" : "分析"}
         </button>
         <button
           type="button"

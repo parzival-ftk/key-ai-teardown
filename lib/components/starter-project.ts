@@ -12,19 +12,19 @@ import { ensureRects } from "./layout";
  */
 
 const STARTER: RawComponentNode = {
-  name: "New Page",
+  name: "新页面",
   type: "page",
   children: [
-    { name: "Header", type: "section" },
+    { name: "页眉", type: "section" },
     {
-      name: "Hero",
+      name: "主视觉",
       type: "section",
       children: [
-        { name: "Title", type: "component" },
-        { name: "Illustration", type: "component" },
+        { name: "标题", type: "component" },
+        { name: "插图", type: "component" },
       ],
     },
-    { name: "Footer", type: "section" },
+    { name: "页脚", type: "section" },
   ],
 };
 

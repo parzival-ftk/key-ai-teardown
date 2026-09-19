@@ -9,96 +9,98 @@ import type { AnalysisProvider, AnalysisResult } from "./provider";
  * 结构化组件树，并如实标注 `source: "demo"`。它让「上传截图 → 分析 → 组件树 → 画布」
  * 这条链路今天就能完整跑通；接入真实 Vision 模型时，只需替换 provider。
  *
- * 产出结构与示例工作区不同（一个 Dashboard 版式），以便一眼看出「这是分析结果」。
+ * 产出结构与示例工作区不同（一个仪表盘版式），以便一眼看出「这是分析结果」。
+ * 组件名与可读属性用中文；面向生成模型的 visualDescription / prompt 保留英文。
  */
 
 const DEMO_PAGE: RawComponentNode = {
-  name: "Dashboard",
+  name: "仪表盘",
   type: "page",
-  description: "Analytics dashboard with sidebar, topbar and content panels.",
+  description: "带侧边栏、顶栏与内容面板的数据分析仪表盘。",
   rect: { x: 0, y: 0, width: 1440, height: 900 },
   children: [
     {
-      name: "Sidebar",
+      name: "侧边栏",
       type: "section",
       rect: { x: 0, y: 0, width: 240, height: 900 },
-      properties: { role: "navigation sidebar", style: "dark, fixed" },
+      properties: { role: "导航侧边栏", style: "深色、固定" },
       children: [
         {
-          name: "Logo",
+          name: "标志",
           type: "component",
           rect: { x: 24, y: 24, width: 160, height: 40 },
-          properties: { role: "brand logo", text: "Acme" },
+          properties: { role: "品牌标志", text: "Acme" },
         },
         {
-          name: "NavList",
+          name: "导航列表",
           type: "component",
           rect: { x: 24, y: 96, width: 192, height: 320 },
-          properties: { role: "primary navigation", style: "icon + label rows" },
+          properties: { role: "主导航", style: "图标 + 标签行" },
         },
         {
-          name: "UserCard",
+          name: "用户卡片",
           type: "component",
           rect: { x: 24, y: 820, width: 192, height: 56 },
-          properties: { role: "account switcher" },
+          properties: { role: "账号切换" },
         },
       ],
     },
     {
-      name: "Topbar",
+      name: "顶栏",
       type: "section",
       rect: { x: 240, y: 0, width: 1200, height: 64 },
       children: [
         {
-          name: "SearchBar",
+          name: "搜索栏",
           type: "component",
           rect: { x: 280, y: 14, width: 420, height: 36 },
           properties: {
-            role: "global search",
-            text: "Search anything…",
+            role: "全局搜索",
+            text: "搜索任何内容…",
             visualDescription: "Rounded search field with a magnifier icon, subtle border",
           },
         },
         {
-          name: "Notifications",
+          name: "通知",
           type: "component",
           rect: { x: 1280, y: 12, width: 40, height: 40 },
-          properties: { role: "notification bell", style: "icon button" },
+          properties: { role: "通知铃铛", style: "图标按钮" },
         },
         {
-          name: "Avatar",
+          name: "头像",
           type: "component",
           rect: { x: 1340, y: 12, width: 40, height: 40 },
-          properties: { role: "user avatar", style: "circular" },
+          properties: { role: "用户头像", style: "圆形" },
         },
       ],
     },
     {
-      name: "Content",
+      name: "内容区",
       type: "section",
       rect: { x: 240, y: 64, width: 1200, height: 836 },
       children: [
         {
-          name: "StatsRow",
+          name: "指标行",
           type: "component",
           rect: { x: 280, y: 104, width: 1120, height: 140 },
-          properties: { role: "kpi cards row", style: "3 equal cards" },
+          properties: { role: "KPI 卡片行", style: "3 张等宽卡片" },
         },
         {
-          name: "ChartPanel",
+          name: "图表面板",
           type: "component",
           rect: { x: 280, y: 276, width: 720, height: 360 },
           properties: {
-            role: "time-series chart",
+            role: "时间序列图",
             visualDescription: "Line chart with soft gradient fill and grid lines, dark theme",
           },
-          prompt: "A dark-themed analytics line chart panel with soft gradient fill and grid lines, minimal UI, high detail",
+          prompt:
+            "A dark-themed analytics line chart panel with soft gradient fill and grid lines, minimal UI, high detail",
         },
         {
-          name: "TablePanel",
+          name: "表格面板",
           type: "component",
           rect: { x: 1032, y: 276, width: 368, height: 360 },
-          properties: { role: "data table", style: "compact rows, zebra stripes" },
+          properties: { role: "数据表格", style: "紧凑行、斑马纹" },
         },
       ],
     },

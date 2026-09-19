@@ -65,9 +65,9 @@ export function Inspector({
         data-inspector
         className="flex w-72 shrink-0 flex-col gap-2 overflow-auto rounded-xl border border-gray-200 p-3 text-xs dark:border-gray-800"
       >
-        <span className="font-medium text-gray-500 dark:text-gray-400">Inspector</span>
+        <span className="font-medium text-gray-500 dark:text-gray-400">检查器</span>
         <p data-inspector-empty className="text-gray-400">
-          选中一个组件以查看属性、Prompt 与生成入口。
+          选中一个组件以查看属性、提示词与生成入口。
         </p>
       </aside>
     );
@@ -84,7 +84,7 @@ export function Inspector({
       className="flex w-72 shrink-0 flex-col gap-3 overflow-auto rounded-xl border border-gray-200 p-3 text-xs dark:border-gray-800"
     >
       <div className="flex items-center gap-2">
-        <span className="font-medium text-gray-500 dark:text-gray-400">Inspector</span>
+        <span className="font-medium text-gray-500 dark:text-gray-400">检查器</span>
         {analysisSource === "demo" && (
           <span
             data-inspector-demo-badge
@@ -114,7 +114,7 @@ export function Inspector({
       </dl>
 
       <label className="flex flex-col gap-1">
-        <span className="text-gray-400">Prompt</span>
+        <span className="text-gray-400">提示词</span>
         <textarea
           data-inspector-prompt
           rows={4}
@@ -131,7 +131,7 @@ export function Inspector({
           onClick={() => onCopyPrompt?.(prompt)}
           className="rounded border border-gray-300 px-2 py-1 dark:border-gray-700"
         >
-          {copied ? "已复制" : "Copy Prompt"}
+          {copied ? "已复制" : "复制提示词"}
         </button>
         <button
           type="button"
@@ -140,7 +140,7 @@ export function Inspector({
           onClick={() => onGenerate?.(componentId)}
           className="rounded bg-indigo-600 px-3 py-1 font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
         >
-          {generating ? generatingLabel : "Generate Visual"}
+          {generating ? generatingLabel : "生成视觉"}
         </button>
       </div>
 
@@ -161,7 +161,7 @@ export function Inspector({
 
       {componentAssets.length > 0 && (
         <section data-inspector-assets className="flex flex-col gap-2">
-          <span className="text-gray-400">Generated Asset</span>
+          <span className="text-gray-400">生成资产</span>
           {componentAssets.map((asset) => (
             <div
               key={asset.id}
@@ -188,7 +188,7 @@ export function Inspector({
                   onClick={() => onRegenerate?.(componentId)}
                   className="rounded border border-gray-300 px-1.5 py-0.5 dark:border-gray-700"
                 >
-                  Regenerate
+                  重新生成
                 </button>
                 <button
                   type="button"
@@ -196,7 +196,7 @@ export function Inspector({
                   onClick={() => onOpenAsset?.(asset)}
                   className="rounded border border-gray-300 px-1.5 py-0.5 dark:border-gray-700"
                 >
-                  Open
+                  打开
                 </button>
                 <button
                   type="button"
@@ -204,7 +204,7 @@ export function Inspector({
                   onClick={() => onUseAsset?.(asset)}
                   className="rounded border border-gray-300 px-1.5 py-0.5 dark:border-gray-700"
                 >
-                  Use as Asset
+                  用作资产
                 </button>
               </div>
             </div>

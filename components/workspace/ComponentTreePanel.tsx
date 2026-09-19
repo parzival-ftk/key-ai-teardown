@@ -24,7 +24,7 @@ export function ComponentTreePanel({ tree, selection, onSelect }: ComponentTreeP
       data-component-tree
       className="flex max-h-[40vh] min-h-24 flex-col gap-1 overflow-auto rounded-xl border border-gray-200 p-2 text-xs dark:border-gray-800"
     >
-      <span className="px-1 font-medium text-gray-500 dark:text-gray-400">Component Tree</span>
+      <span className="px-1 font-medium text-gray-500 dark:text-gray-400">组件树</span>
       {!root ? (
         <p data-component-tree-empty className="px-1 text-gray-400">
           还没有结构。上传截图并 Analyze，或新建项目。
