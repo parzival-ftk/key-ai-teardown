@@ -13,6 +13,8 @@
 # misc
 .DS_Store
 *.pem
+*.key
+*.token
 
 # debug
 npm-debug.log*
@@ -36,11 +38,7 @@ next-env.d.ts
 *.db-wal
 
 # ── 运行期产物 / 本地实验（绝不进入仓库）────────────────────────
-.rivet/artifacts/
-.rivet/experiments/
-.rivet/backups/
-.rivet/scratch/
-.rivet/vsw/
+.rivet/
 
 # ── Python 环境 / 本地模型权重 / ComfyUI 安装 ───────────────────
 .venv/
