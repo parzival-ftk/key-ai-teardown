@@ -1,13 +1,15 @@
-import { HomeView } from "@/components/home/HomeView";
+import { WorkspaceView } from "@/components/workspace/WorkspaceView";
+import { EXAMPLE_PROJECT_ID } from "@/lib/components/demo-project";
 
 export const dynamic = "force-dynamic";
 
 /**
- * 产品首页（阶段 15，spec §17/§18）。
+ * 产品首页 —— 打开即进入画布工作区。
  *
- * 入口只有三件事：Create Project / Recent Projects / Example Project。
- * 项目数据存在浏览器本地（localStorage），因此首页是客户端组件。
+ * 产品核心界面是 Canvas，不是 Dashboard。因此首页直接渲染内置示例工作区的画布，
+ * 让「打开 http://localhost:3000 就能看到并操作画布」成立。
+ * 项目列表 / 新建入口保留在 `/projects`。
  */
 export default function Home() {
-  return <HomeView />;
+  return <WorkspaceView projectId={EXAMPLE_PROJECT_ID} />;
 }

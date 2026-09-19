@@ -281,7 +281,7 @@ export function WorkspaceView({ projectId }: WorkspaceViewProps) {
     return (
       <main data-workspace-missing className="flex flex-col gap-3 p-8 text-sm">
         <p className="text-gray-500">找不到该项目（可能已被删除）。</p>
-        <Link href="/" className="text-indigo-500 underline">
+        <Link href="/projects" className="text-indigo-500 underline">
           ← 返回项目列表
         </Link>
       </main>
@@ -295,7 +295,7 @@ export function WorkspaceView({ projectId }: WorkspaceViewProps) {
   return (
     <main data-workspace className="flex h-screen flex-col gap-2 p-3 text-sm">
       <header className="flex flex-wrap items-center gap-3">
-        <Link href="/" className="text-xs text-gray-400 hover:underline">
+        <Link href="/projects" className="text-xs text-gray-400 hover:underline">
           ← 项目
         </Link>
         <h1 data-workspace-title className="text-base font-semibold">
