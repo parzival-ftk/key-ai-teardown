@@ -82,8 +82,8 @@ export interface GeneratedAsset {
   createdAt: string;
 }
 
-/** 项目来源：内置示例，或用户上传截图新建 */
-export type ProjectSource = "example" | "upload";
+/** 项目来源：内置示例 / 用户上传截图 / 空白新建 */
+export type ProjectSource = "example" | "upload" | "blank";
 
 /** 一个工作空间项目（持久化单元） */
 export interface Project {

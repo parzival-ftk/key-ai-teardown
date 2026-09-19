@@ -1,6 +1,6 @@
 import type { RawComponentNode } from "../schema";
 import { treeFromRaw } from "../tree";
-import type { AnalysisInput, AnalysisProvider, AnalysisResult } from "./provider";
+import type { AnalysisProvider, AnalysisResult } from "./provider";
 
 /**
  * Demo 分析 Provider（阶段 15，spec §9）。
@@ -121,7 +121,7 @@ export function createDemoAnalysisProvider(
   return {
     id: "demo-analysis",
     source: "demo",
-    async analyze(_input: AnalysisInput): Promise<AnalysisResult> {
+    async analyze(): Promise<AnalysisResult> {
       if (delayMs > 0) await sleep(delayMs);
       return {
         tree: treeFromRaw(DEMO_PAGE),

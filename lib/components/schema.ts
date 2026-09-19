@@ -63,7 +63,7 @@ export const GeneratedAssetSchema = z.object({
 export const ProjectSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  source: z.enum(["example", "upload"]),
+  source: z.enum(["example", "upload", "blank"]),
   createdAt: z.number(),
   updatedAt: z.number(),
   tree: ComponentTreeSchema,

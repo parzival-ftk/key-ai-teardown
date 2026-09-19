@@ -25,6 +25,9 @@ const INDEX_KEY = "key:projects";
 const PROJECT_PREFIX = "key:project:";
 const MAX_PROJECTS = 50;
 
+/** 项目索引在 localStorage 中的键（供 useSyncExternalStore 快照读取） */
+export const PROJECT_INDEX_STORAGE_KEY = INDEX_KEY;
+
 export const projectStorageKey = (id: string) => `${PROJECT_PREFIX}${id}`;
 
 /** 生成项目 id（时间戳 + 随机后缀，冲突概率可忽略；测试可注入） */

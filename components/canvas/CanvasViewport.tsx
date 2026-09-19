@@ -218,9 +218,14 @@ export function CanvasViewport({
   const nodes = controlledNodes ?? internalNodes;
   const selection = controlledSelection ?? internalSelection;
   const nodesRef = useRef(nodes);
-  nodesRef.current = nodes;
   const selectionRef = useRef(selection);
-  selectionRef.current = selection;
+  /* ref 仅作「读最新值」用，写入放在 effect 里（渲染期写 ref 违反 react-hooks/refs） */
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+  useEffect(() => {
+    selectionRef.current = selection;
+  }, [selection]);
   const setNodes = useCallback(
     (updater: CanvasNode[] | ((current: CanvasNode[]) => CanvasNode[])) => {
       const next = typeof updater === "function" ? updater(nodesRef.current) : updater;
@@ -282,7 +287,7 @@ export function CanvasViewport({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [selection]);
+  }, [selection, setNodes, setSelection]);
 
   /* 视口尺寸：ResizeObserver 只写 state；不支持该 API 的环境（jsdom / 老浏览器）只量一次 */
   useEffect(() => {
@@ -346,7 +351,7 @@ export function CanvasViewport({
       ]);
     };
     reader.readAsDataURL(file);
-  }, []);
+  }, [setNodes]);
 
   /* 粘贴图片 → 落到视口中心附近 */
   useEffect(() => {
@@ -368,7 +373,7 @@ export function CanvasViewport({
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [viewport, size, ingestImageFile]);
+  }, [viewport, size, ingestImageFile, setNodes]);
 
   /* ── 手势 ── */
 
@@ -642,7 +647,7 @@ export function CanvasViewport({
   return (
     <div
       data-canvas-root
-      className={`flex h-[70vh] min-h-[420px] w-full gap-2${className ? ` ${className}` : ""}`}
+      className={`flex w-full gap-2 ${className ?? "h-[70vh] min-h-[420px]"}`}
     >
       {/* 图层面板 */}
       <aside
