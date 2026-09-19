@@ -1,20 +1,18 @@
 @import "tailwindcss";
 
+/* 强制 dark 主题（spec §20：Dark / Minimal / Technical / Canvas-centric / AI Native）。
+   用 class 策略而非系统 media：html 带 .dark 时所有组件的 dark: 变体一律生效，
+   整体视觉稳定为深色，不再跟随操作系统浅色主题漂移。 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
