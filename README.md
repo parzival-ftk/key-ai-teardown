@@ -1,176 +1,261 @@
-# Key · AI 产品拆解助手
+# Key
 
-> 把任何产品拆成关键洞察。
+**AI-powered interface analysis and visual decomposition workspace.**
 
-🌐 **在线体验**：https://key-ai-teardown.vercel.app ｜ **源码**：https://github.com/parzival-ftk/key-ai-teardown
-
-Key 是一个面向 **AI 产品经理 / 产品经理** 岗位的**面试作品集项目**：输入一个产品（或一个想法），它像一位产品经理那样完成一次结构化拆解 —— 竞品格局、用户与 JTBD、模拟访谈、视觉设计、商业模式、反方质疑、答辩、综合裁决，直到一份**可直接开发的中文 PRD** 与**界面参考代码**。输入 2-3 个产品时，它还能产出**并列对比矩阵**。
-
-## 一条主线：让 AI 的自信变得**可追责**
-
-它不是一个黑盒调 API 的套壳。四个环节环环相扣，构成一条完整叙事：
-
-1. **看见** —— 10 个角色的编队经 SSE **实时直播**，推理逐字可见，而不是一个转圈等待。
-2. **可追溯** —— 每条关键结论带 `已核实 / 推测 / 缺失` 证据标签与 0-100 置信度。硬约束：**「已核实」必须能机械核验回本次输入**，否则自动降级为「推测」（治理假引用）；报告顶部给出「可追溯输入」占比。
-3. **一致** —— **画像先行**：用户研究员先立 persona，访谈官以**同一套画像**展开访谈（依赖在图里显式声明），避免两段 persona 各说各话。
-4. **经得起质询** —— 反方质疑官先挑战假设，**答辩官**逐条答辩（接受 / 反驳 / 存疑），综合官做**裁决**；分歧在报告里显式呈现，而不是被抹平。
-
-## 亮点
-
-- **10 个角色的编队**：竞品 / 用户研究 / 访谈 / 视觉设计 / 商业模式 5 个分析师**并行** → 访谈官 → 反方质疑官 → 答辩官 → 综合官 → PRD 撰写官；SSE 流式实时点亮，单点失败不阻塞整体。
-- **可追责的可信度层**：证据标签 + 置信度 + 「可追溯输入」总览；结论可展开 `结论 → 来源`；导出 Markdown 同样带标签。
-- **真辩论**：质疑 → 答辩 → 裁决，**单轮收敛**（依赖图无环 + 框架层收敛纪律），不无限辩论。
-- **对比矩阵**：一次输入 2-3 个产品，各自独立拆解后由「对比官」产出并列对比表；编排层 fan-out **并发受限**（成本 / 速率护栏）。
-- **界面参考代码**：视觉设计拆解 + HTML / Tailwind 代码起点（可复制、可轻量画布预览并改 class）。
-- **成套分析框架**（13 个）：波特五力、SWOT、竞品画像（威胁等级）、JTBD、商业模式画布（含单位经济学）、AARRR、模拟用户访谈、视觉设计拆解、界面代码还原、对比矩阵等。
-- **四类输入源**：文本、URL、截图（多模态识别）、PDF（文本抽取）。URL 走**双路**——正文抓取 + **无头渲染取 UI 结构（DOM + computed styles）**，纯 JS 渲染页也能拿到界面结构。
-- **交付物完整**：10 段式报告可导出 Markdown；PRD 用户故事一键转 **GitHub Issues**。
-- **质量门禁**：`npm run eval` 以 judge 按 rubric 打分，并与基线对比「改动前 / 后」的质量变化。
-- **断网可演示**：内置**样例报告**与**样例对比**，无 Key / 无网络也能完整走一遍。
+Upload a product interface screenshot, transform it into a structured component tree, explore the
+hierarchy on an infinite canvas, inspect component properties and prompts, and generate visual
+assets through ComfyUI.
 
 ---
 
-## 技术栈
+## What it is
 
-| 层 | 选型 |
-|---|---|
-| 框架 | Next.js 16（App Router）+ TypeScript |
-| 样式 | Tailwind CSS 4 |
-| LLM | 自研 Provider 抽象（OpenAI 兼容协议，一套接口切 DeepSeek / OpenAI / 通义 / 智谱） |
-| 编排 | 自研轻量**显式依赖图**（拓扑分层调度，非 LangGraph，可控可讲） |
-| 流式 | SSE（`ReadableStream` 事件流） |
-| PDF | unpdf |
-| 测试 | Vitest（单元 + 集成，264 用例）；质量门禁 eval 为独立 CLI |
+Interface work usually starts from a picture and ends in a pile of loose decisions: which parts of
+the screen are separate components, which are nested, what each one is supposed to be, and what it
+should look like once redrawn.
 
-> 不引入 LangGraph / CrewAI：编排逻辑简单（依赖图 + 事件流），自研可控、易讲清设计决策。
+Key treats that as a first-class workflow instead of a note-taking problem:
 
----
+- **Read** an interface screenshot into a **structured component tree** (page → section → component → element).
+- **Organize** that tree on an **infinite canvas** — pan, zoom, drag, select, parent/child relations.
+- **Inspect** any component: its role, text, visual style, and its generation prompt.
+- **Generate** visual assets for a component through **ComfyUI**, and drop the result back onto the canvas
+  bound to the component it came from.
 
-## 快速开始
-
-```bash
-# 1. 安装依赖
-npm install
-
-# 2. 配置模型（复制模板并填入你的 Key，四家任选其一）
-cp .env.example .env
-
-# 3. 启动
-npm run dev
-```
-
-打开 http://localhost:3000 —— 输入产品名即可开始；没有 Key 时可点首页「查看样例报告」或「多产品对比 → 查看样例对比」。
-
-### 环境变量
-
-| 变量 | 说明 |
-|---|---|
-| `LLM_BASE_URL` | 厂商 OpenAI 兼容端点（见 `.env.example`） |
-| `LLM_API_KEY` | 你的 API Key（必填） |
-| `LLM_MODEL` | 模型名，如 `deepseek-chat` |
-| `LLM_TIMEOUT_MS` | 单次调用总超时（毫秒，可选，默认 60000） |
-| `CHROME_PATH` | 可选：指定 Chrome/Edge 可执行文件路径（URL 无头渲染用；缺省自动探测系统安装，探测不到则降级为正文抓取） |
+It is *not* a Figma replacement, and it does *not* generate whole websites. The scope is deliberately
+narrow: **understand an interface → decompose it → organize it visually → generate visuals**.
 
 ---
 
-## 架构
+## Core flow
 
 ```mermaid
 flowchart TD
-  A["输入层<br/>文本 / URL / 截图 / PDF"] --> B["解析层 Parser<br/>抓取 · 图片校验 · PDF 抽取"]
-  B --> C["编排层 Orchestrator<br/>显式依赖图 · 拓扑分层调度"]
-  C --> D1["竞品分析师"]
-  C --> D2["用户研究员"]
-  C --> D3["商业模式分析师"]
-  C --> D4["视觉设计分析师"]
-  C --> D5["界面代码生成师"]
-  D2 --> D2b["用户访谈官<br/>（依赖研究员画像）"]
-  D1 --> E["反方质疑官"]
-  D2b --> E
-  D3 --> E
-  D4 --> E
-  D5 --> E
-  E --> E2["答辩官<br/>逐条答辩"]
-  E2 --> F["PM 综合官<br/>裁决 + 置信度 + 证据标签"]
-  F --> G["PRD 撰写官<br/>用户故事 + 发布清单"]
-  G --> H["输出层<br/>10 段式报告 / 导出 / Issues"]
-  C -. "SSE 事件流" .-> H
-  H --> J[("localStorage<br/>历史记录")]
-  C -. "多产品 fan-out" .-> K["对比官<br/>并列对比矩阵"]
+  A["Screenshot / Product interface"] --> B["Analysis<br/>(AnalysisProvider)"]
+  B --> C["Structured Component Tree<br/>(schema-validated)"]
+  C --> D["Infinite Canvas<br/>(component nodes + parent/child links)"]
+  D --> E["Inspector<br/>(role · text · style · prompt)"]
+  E --> F["Prompt"]
+  F --> G["ImageGeneration Service<br/>POST /api/generate"]
+  G --> H["ComfyUIProvider"]
+  H --> I["ComfyUI"]
+  I --> J["GenerationResult"]
+  J --> K["GeneratedAsset<br/>(bound to componentId)"]
+  K --> D
 ```
-
-**边界原则**：每个 Agent 是纯函数式单元（`ProductBrief` + 依赖 → 输出），可脱离 UI 与网络独立测试；编排层只负责**调度与依赖**，不含业务提示词（提示词集中在 `lib/frameworks/`）。
 
 ---
 
-## 目录结构
+## Capability status
+
+Capabilities are labelled honestly — nothing is presented as more real than it is.
+
+| Capability | Status | Notes |
+|---|---|---|
+| Infinite canvas (pan / zoom / drag / select / resize / marquee / layers / fit) | **REAL** | Native Pointer Events, zero canvas framework; viewport math is pure functions in `lib/canvas` |
+| Component tree model + deterministic layout | **REAL** | `lib/components` — pure, unit-tested |
+| Parent / child relation | **REAL** | Component tree panel + connection overlay drawn from live node geometry |
+| Inspector (Name / Type / Role / Description / Text / Visual Style / Prompt) | **REAL** | Field model in `lib/components/inspector-fields.ts` |
+| Component prompt (authored or derived) | **REAL** | `lib/components/prompt.ts` |
+| Persistence (refresh keeps your project) | **REAL** | localStorage via the existing `KVStore` abstraction |
+| ComfyUI visual generation | **REAL** | Server-side `ComfyUIProvider` over HTTP (`/prompt` → `/history` → `/view`); requires a running ComfyUI instance |
+| Screenshot analysis → component tree | **DEMO** | No vision model is wired into this flow yet; the default provider returns a deterministic tree and is labelled `demo` in the UI |
+| Product teardown / multi-product comparison | **Legacy** | Earlier feature set, kept in the repository; see *Legacy modules* below |
+
+---
+
+## Quick start
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:3000.
+
+- **Create Project** — starts from a small page skeleton.
+- **Example Project** — a built-in *Landing Page* workspace. Open it, select
+  `Hero → Illustration`, and use **Generate Visual** to run the whole loop without uploading anything.
+
+---
+
+## Environment variables
+
+Copy `.env.example` to `.env`.
+
+| Variable | Purpose |
+|---|---|
+| `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | OpenAI-compatible endpoint used by the legacy product-teardown modules |
+| `LLM_TIMEOUT_MS` | Optional per-call timeout (default 60000) |
+| `COMFYUI_BASE_URL` | ComfyUI base URL (default `http://127.0.0.1:8188`) |
+| `COMFYUI_CHECKPOINT` | Default checkpoint filename; if omitted the provider falls back to its own default |
+| `COMFYUI_TIMEOUT_MS` | Per-generation wait limit (default 120000) |
+| `COMFYUI_ARTIFACT_DIR` | Where generated images are written (default `.rivet/artifacts/comfy`) |
+
+---
+
+## ComfyUI setup
+
+Generation is a real provider call, not a simulation:
 
 ```
-app/                   页面与 API 路由
-  (页面)               / · /analyze/[id] · /report/[id] · /history · /sample
-                       /compare · /compare/[id] · /compare/sample
-  api/                 analyze(SSE) · compare(SSE) · export · parse · health
-components/            输入表单（单产品 / 多产品对比）、分析直播、报告、对比视图、历史
+Component prompt
+  → GenerationRequest
+  → ImageGeneration Service (POST /api/generate)
+  → ComfyUIProvider
+  → ComfyUI
+  → GenerationResult
+  → GeneratedAsset (bound to the component)
+```
+
+1. Run ComfyUI locally (default `http://127.0.0.1:8188`) and make sure at least one checkpoint is installed.
+2. Set `COMFYUI_CHECKPOINT` if the default checkpoint name does not match your installation.
+3. Check the connection:
+
+```bash
+npm run comfy:doctor    # inspects the instance's /object_info and validates the workflow against it
+npm run comfy:e2e       # live text-to-image end-to-end run
+```
+
+If ComfyUI is unreachable, the UI shows a **structured** error (`code: message`) instead of a generic
+failure. Failure stages are classified as `CONFIG_ERROR`, `COMFYUI_UNAVAILABLE`, `SCHEMA_INVALID`,
+`WORKFLOW_INVALID`, `QUEUE_ERROR`, `EXECUTION_ERROR`, `OUTPUT_NOT_FOUND`, `IMAGE_DOWNLOAD_ERROR`.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Domain["Domain model (pure)"]
+    T["lib/components/types.ts"]
+    S["schema.ts (zod)"]
+    TR["tree.ts / layout.ts"]
+  end
+  subgraph Bridge["Tree ↔ Canvas"]
+    M["lib/components/tree-to-canvas.ts"]
+    V["lib/canvas/viewport.ts + canvas-node.ts"]
+  end
+  subgraph UI["Workspace UI"]
+    W["components/workspace/WorkspaceView.tsx"]
+    C["components/canvas/CanvasViewport.tsx"]
+    I["Inspector.tsx"]
+    P["ComponentTreePanel.tsx"]
+    O["ConnectionOverlay.tsx"]
+    A["AnalyzePanel.tsx"]
+  end
+  subgraph Gen["Generation"]
+    G["lib/components/generation.ts (client)"]
+    R["app/api/generate/route.ts"]
+    P2["lib/image/comfyui-provider.ts"]
+  end
+  T --> M --> V --> C
+  W --> C & I & P & O & A
+  I --> G --> R --> P2
+```
+
+Principles the codebase follows:
+
+- **The component tree is the domain model**; `CanvasNode` is the canvas model. They are bridged by pure
+  functions, so a canvas change never leaks domain semantics and vice versa.
+- **Layout and geometry are pure functions.** No DOM measurement, no `setState` inside effects during layout.
+- **AI/analysis JSON never reaches the canvas unchecked** — it is validated against a zod schema and
+  normalised into the flat component tree first.
+- **One provider boundary per external system** (`AnalysisProvider`, `ImageGenerationProvider`), so backends
+  can be swapped without touching the UI.
+
+### Key directories
+
+```
+app/
+  page.tsx                     home (Create / Recent / Example)
+  project/[id]/page.tsx        project workspace
+  api/generate/route.ts        generation boundary (thin)
+components/
+  canvas/CanvasViewport.tsx    infinite canvas (controlled + uncontrolled modes)
+  workspace/                   WorkspaceView, Inspector, ComponentTreePanel, ConnectionOverlay, AnalyzePanel
+  home/HomeView.tsx            home view
 lib/
-  agents/              编排器 + 10 个 Agent + 流式补全 + 结构化输出解析
-  compare/             对比矩阵：并发受限 fan-out + 对比编排 + SSE 封装
-  frameworks/          分析框架提示词库（含 prd-templates/、对比官提示词）
-  llm/                 Provider 抽象与 OpenAI 兼容实现
-  parsers/             URL / 图片 / PDF 解析 · dom（无头渲染取 UI 结构）
-  export/              报告 Markdown 与 PRD→GitHub Issues
-  report/              报告章节定义（单一事实来源）
-  types/               共享契约（ProductBrief / CompareBrief / AgentEvent / Evidence）
-eval/                  质量门禁：rubric · judge · 基线与对比 · CLI（npm run eval）
-scripts/               演示冒烟脚本（npm run demo）
-docs/                  设计规格 · 演示脚本
+  components/                  component tree model, schema, layout, project store, analysis, generation
+  canvas/                      viewport math, layer model, ComfyUI bridge, schema doctor
+  image/                       ImageGenerationProvider abstraction + ComfyUI provider
+  hooks/client-snapshot.ts     localStorage reads via useSyncExternalStore
 ```
 
 ---
 
-## 质量门禁与测试
+## Tests
 
 ```bash
-npm run test        # Vitest：单元 + 集成（264 用例）
+npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit
-npm run lint        # ESLint（Next 16 flat config）
-npm run build       # 生产构建
-npm run eval        # 质量门禁：judge 按 rubric 打分并与基线对比（需真实 LLM）
+npm test            # Vitest (unit + integration)
 ```
 
-- **单元 / 集成测试**：覆盖 Agent 输出解析、SSE 事件序列、依赖图调度、Provider 请求构造、解析器、导出转换、历史存储等；集成测试以 stub LLM server 驱动**完整编队**走真实 HTTP；**无头渲染**另有一条真实浏览器集成用例（本机无 Chrome/Edge 时自动跳过）。
-- **质量门禁（eval）**：固定的 golden briefs → 跑完整编队 → judge 按 4 个维度（框架覆盖度 / 证据可追溯性 / 洞察深度 / 可执行性）打分 → 与 `eval/baseline.json` 对比，输出「改动前 / 后」质量对比表。
-  > 纪律：judge 是**代理指标、有噪音**，分数只用于同一 rubric 下的相对比较，不得当真理。
-
----
-
-## 演示
-
-面试演示的完整剧本（含讲解主线、逐步操作与降级路径）见 **`docs/demo.md`**。
-
-一键冒烟校验（对已运行的 dev server 校验演示路径上的关键端点）：
+Live ComfyUI checks are separate opt-in scripts (they need a real instance):
 
 ```bash
-npm run dev          # 终端 A：启动
-npm run demo         # 终端 B：校验 / · /sample · /compare · /compare/sample · /api/health
+npm run comfy:doctor
+npm run comfy:e2e
 ```
 
 ---
 
-## 部署
+## Example Project
 
-已部署于 https://key-ai-teardown.vercel.app （公开访问）。项目为标准 Next.js 应用，可一键部署到 Vercel：
+The repository ships a built-in **Example Workspace** (`Landing Page`) so the product can be tried
+without first uploading a screenshot:
 
-1. 推送到 GitHub；
-2. 在 Vercel 导入仓库；
-3. 在项目设置中配置环境变量（`LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`）；
-4. 部署。
+```
+Landing Page
+├── Header
+├── Hero
+│   ├── Title
+│   ├── SearchBox
+│   └── Illustration   ← has a ready-to-use generation prompt
+├── Features
+└── Footer
+```
 
-> 截图输入需所选模型支持多模态（Vision）；若使用纯文本模型，请改用文本 / URL / PDF 输入。
-> **URL 无头渲染的部署边界**：headless 取 UI 结构依赖**本机已安装 Chrome/Edge**（可用 `CHROME_PATH` 指定）。Vercel 等 serverless 环境无浏览器，会**自动降级**为正文抓取，不影响其它功能；要在线启用需接入 `@sparticuz/chromium` 或外部渲染服务。
+It is a normal project — editable and persisted like any other.
 
 ---
 
-## 设计文档
+## Screenshots
 
-产品定位、竞品格局与差异化、SSE 事件协议、错误降级策略与分波路线见
-`docs/superpowers/specs/2026-09-12-key-design.md`。
+Screenshots are captured from a local run and belong in `docs/screenshots/`. No screenshots are
+committed yet; until they are, run `npm run dev` and open the Example Project to see the workspace.
+
+---
+
+## Known limitations
+
+- **Screenshot analysis is DEMO.** The default `AnalysisProvider` returns a deterministic component tree
+  labelled `demo`. Wiring a real vision model means replacing the provider — the canvas and Inspector do
+  not change.
+- Projects are stored per-browser (localStorage). There is no account system or server-side storage, so
+  projects do not follow you across machines, and clearing site data removes them.
+- Generated images live in `COMFYUI_ARTIFACT_DIR` and are referenced by ComfyUI's `/view` URL; the app does
+  not copy them into its own asset store.
+- The canvas is tuned for roughly 100 nodes. It is not a WebGL renderer and does not target large-scale
+  graph editing, multiplayer, or real-time cloud sync.
+- ComfyUI must be reachable **from the browser** for a generated image to display, since the canvas loads
+  it from the provider's `/view` URL.
+- The legacy product-teardown modules still expect LLM credentials and are not wired into the current home
+  page.
+
+---
+
+## Legacy modules
+
+The repository began as a product-teardown assistant (competitive landscape, user research, JTBD,
+interviews, business model, red-teaming, rebuttal, synthesis, PRD, UI reference code, multi-product
+comparison, quality-gate `eval`). Those routes (`/sample`, `/compare`, `/history`, `/resources`) and their
+libraries remain in the codebase and are still tested; they are simply not part of the interface-analysis
+product surface.
+
+```bash
+npm run stub:llm    # stub LLM server for integration tests
+npm run demo        # smoke-check the legacy demo endpoints against a running dev server
+npm run eval        # quality gate for the legacy report pipeline (needs a real LLM)
+```
