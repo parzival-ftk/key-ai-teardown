@@ -79,11 +79,11 @@ describe("sanitizeEnvValue（配置容错）", () => {
   it("readLLMEnv 能剥离被尖括号包裹的 key（真实踩过的坑：<sk-...> 导致 401）", () => {
     const cfg = readLLMEnv({
       LLM_BASE_URL: "<https://api.deepseek.com/v1>",
-      LLM_API_KEY: "<sk-0d5d4f0991a348049ef8da38043e4c11>",
+      LLM_API_KEY: "<sk-00000000000000000000000000000000>",
       LLM_MODEL: " deepseek-chat ",
     });
 
-    expect(cfg?.LLM_API_KEY).toBe("sk-0d5d4f0991a348049ef8da38043e4c11");
+    expect(cfg?.LLM_API_KEY).toBe("sk-00000000000000000000000000000000");
     expect(cfg?.LLM_BASE_URL).toBe("https://api.deepseek.com/v1");
     expect(cfg?.LLM_MODEL).toBe("deepseek-chat");
   });
